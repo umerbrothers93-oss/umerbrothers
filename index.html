@@ -5937,8 +5937,16 @@ function resetBankCashFilter() {
 }
 
 function renderBankAndCash(filterDate = null) {
+    // --- NAYA CODE: Agar date select na ho to hamesha Aaj ki date le ---
+    if (!filterDate) {
+        filterDate = new Date().toISOString().split('T')[0];
+        const dateBox = document.getElementById('bc-filter-date');
+        if (dateBox) dateBox.value = filterDate;
+    }
+
     const balances = { 'Cash': 0 };
-    const dateLabel = filterDate ? `(${new Date(filterDate).toLocaleDateString()})` : "(All Time)";
+    const dateLabel = `(${new Date(filterDate).toLocaleDateString()})`;
+    // ------------------------------------------------------------------
     
     document.getElementById('bc-date-label-cash').textContent = dateLabel;
     document.getElementById('bc-date-label-bank').textContent = dateLabel;
@@ -8069,7 +8077,12 @@ if (moduleName === 'SellReturn') {
             await dbFetchExpenses();
             await dbFetchSellReturns();
             await dbFetchCashBook();
-            renderBankAndCash();
+            
+            // Aaj ki date nikal kar default set karein
+            const aajKiDate = new Date().toISOString().split('T')[0];
+            document.getElementById('bc-filter-date').value = aajKiDate;
+            
+            renderBankAndCash(aajKiDate);
             renderBCManageBanksTable();
         }
         if (moduleName === 'GatePass') {
@@ -8520,7 +8533,12 @@ function addBankCategory() {
     alert("Bank account kamyabi se shamil kar diya gaya hai!");
     
     // Refresh all views
-    renderBankAndCash();
+   // Agar date select hai to wo uthaye, warna aaj ki date dikhaye
+    const bcDateInput = document.getElementById('bc-filter-date');
+    const bcDate = (bcDateInput && bcDateInput.value) ? bcDateInput.value : new Date().toISOString().split('T')[0];
+    if(bcDateInput) bcDateInput.value = bcDate;
+    
+    renderBankAndCash(bcDate);
     renderBCManageBanksTable();
     populatePaymentMethods();
 }
