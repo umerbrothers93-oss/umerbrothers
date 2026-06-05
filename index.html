@@ -7193,14 +7193,18 @@ function filterInvoices(status) {
     renderPartialPaymentTable();
 }
 
-async function editSaleInvoice(invoiceId) { // <-- Yahan async lagayein
+async function editSaleInvoice(invoiceId) {  // <-- Yahan async lagaya hai
     const invoice = partialPaymentInvoices.find(inv => inv.invoiceId == invoiceId); 
-    // ...
-    const partialPaymentsTab = document.querySelector('.tab-link[onclick*="PartialPayments"]');
-    if(partialPaymentsTab) {
-        await openModule({ currentTarget: partialPaymentsTab }, 'PartialPayments'); // <-- Yahan await lagayein
+    if (!invoice) {
+        alert("Invoice not found for editing.");
+        return;
     }
-    openModule({ currentTarget: partialPaymentsTab }, 'PartialPayments');
+
+    const partialPaymentsTab = document.querySelector('.tab-link[onclick*="PartialPayments"]');
+    if (partialPaymentsTab) {
+        // <-- Yahan await lagaya hai taake module poori tarah open hone ka intezar kare
+        await openModule({ currentTarget: partialPaymentsTab }, 'PartialPayments'); 
+    }
 
     editingInvoiceId = invoiceId;
 
