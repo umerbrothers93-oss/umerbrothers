@@ -5982,6 +5982,7 @@ function renderBankAndCash(filterDate = null) {
         return isoString.split('T')[0] === filterDate;
     };
 
+    // 1. Sirf POS (Customer Invoices) ki aamad (Income) shamil ki gayi hai
     partialPaymentInvoices.forEach(inv => {
         (inv.payments || []).forEach(p => {
             if (isSameDate(p.date)) {
@@ -5991,26 +5992,14 @@ function renderBankAndCash(filterDate = null) {
         });
     });
 
-    expenses.forEach(exp => {
-        if (isSameDate(exp.date)) {
-            balances['Cash'] -= exp.amount;
-        }
-    });
-    
+    // 2. Sirf Sell Return (Maal Wapsi) ka wapas kiya gaya paisa Cash se minus kiya gaya hai
     sellReturnsLog.forEach(ret => {
         if (isSameDate(ret.date) && ret.netAmount > 0) {
             balances['Cash'] -= ret.netAmount;
         }
     });
 
-    cashBookLog.forEach(log => {
-        if (!log.id || !(log.id.startsWith('cb_') || log.id.startsWith('ptxn'))) {
-             if (isSameDate(log.date)) {
-                if (log.type === 'in') balances['Cash'] += log.amount;
-                else balances['Cash'] -= log.amount;
-             }
-        }
-    });
+    // (Expenses aur baqi Cashbook entries yahan se hamesha ke liye hata di gayi hain)
 
     const cashBalance = balances['Cash'] || 0;
     let bankTotal = 0;
@@ -7204,14 +7193,13 @@ function filterInvoices(status) {
     renderPartialPaymentTable();
 }
 
-function editSaleInvoice(invoiceId) {
+async function editSaleInvoice(invoiceId) { // <-- Yahan async lagayein
     const invoice = partialPaymentInvoices.find(inv => inv.invoiceId == invoiceId); 
-    if (!invoice) {
-        alert("Invoice not found for editing.");
-        return;
-    }
-
+    // ...
     const partialPaymentsTab = document.querySelector('.tab-link[onclick*="PartialPayments"]');
+    if(partialPaymentsTab) {
+        await openModule({ currentTarget: partialPaymentsTab }, 'PartialPayments'); // <-- Yahan await lagayein
+    }
     openModule({ currentTarget: partialPaymentsTab }, 'PartialPayments');
 
     editingInvoiceId = invoiceId;
@@ -7361,7 +7349,7 @@ function renderPurchaseHistoryTable() {
     });
 }
 
-function editPurchaseLog(logId) {
+async function editPurchaseLog(logId) {  // <-- Yahan async lagaya hai
     const log = purchaseLog.find(l => l.id === logId);
     if (!log) {
         alert("Purchase record not found.");
@@ -7369,16 +7357,19 @@ function editPurchaseLog(logId) {
     }
 
     const productPaymentTab = document.querySelector('.sub-tab[onclick*="PurchaseProductPayment"]');
-    if(productPaymentTab) openModule({ currentTarget: productPaymentTab }, 'PurchaseProductPayment');
+    if(productPaymentTab) {
+        // <-- Yahan await lagaya hai taake tab poori tarah open ho jaye
+        await openModule({ currentTarget: productPaymentTab }, 'PurchaseProductPayment');
+    }
 
     editingPurchaseLogId = logId;
-
     document.getElementById('purchase-form-title').textContent = `Editing Purchase #${logId}`;
 
     const purchaser = purchasers.find(p => p.id === log.purchaserId);
     if(purchaser) {
         document.getElementById('purchase-purchaser-search').value = `${purchaser.name} (${purchaser.phone})`;
     }
+    
     document.getElementById('purchase-purchaser-search').disabled = true;
     document.getElementById('purchase-date').value = log.date;
 
