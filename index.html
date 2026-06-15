@@ -480,9 +480,7 @@
             <div class="left-panel">
                 <div class="tabs">
                     <button class="tab-link active" onclick="openModule(event, 'Dashboard')">📊 Dashboard</button>
-<!-- Is button ko Left Panel main 'Cash Book' ke niche lagayein -->
-<button class="tab-link" onclick="openModule(event, 'CashBookHistory')">📖 Cash Book History</button>
-                    
+
                     <!-- PRODUCTS/REPORTS DROPDOWN START -->
                     <div class="nav-item-dropdown" id="product-nav-item">
                         <button class="tab-link dropdown-toggle" onclick="toggleSubMenu('product-nav-item')">
@@ -542,7 +540,16 @@
                     </div>
                     <!-- GATE PASS DROPDOWN END -->
 
-                    <button class="tab-link" onclick="openModule(event, 'CashBook')">💰 Cash Book</button>
+                    <!-- CASH BOOK DROPDOWN -->
+<div class="nav-item-dropdown" id="cashbook-nav-item">
+    <button class="tab-link dropdown-toggle" onclick="toggleSubMenu('cashbook-nav-item')">
+        💰 Cash Book <span class="arrow">▼</span>
+    </button>
+    <div class="sub-tabs">
+        <button class="tab-link sub-tab" onclick="openModule(event, 'CashBook')">Manage Cash</button>
+        <button class="tab-link sub-tab" onclick="openModule(event, 'CashBookHistory')">Cash Book History</button>
+    </div>
+</div>
                     <!-- NEW BANK & CASH MODULE BUTTON -->
                     <button class="tab-link" onclick="openModule(event, 'BankAndCash')">🏦 Bank & Cash</button>
 
@@ -553,78 +560,56 @@
 
             <!-- Center Panel: Module Content (Products, Manage, Reports, etc.) -->
             <div class="center-panel">
-                
-                <!-- Is div ko Center Panel ke andar baqi modules ki tarah paste karein -->
+                <!-- START NEW MODULE: CASH BOOK HISTORY -->
 <div id="CashBookHistory" class="module-content">
-    <h2 class="panel-title">📖 Cash Book History</h2>
+    <h2 class="panel-title">📅 Cash Book History</h2>
     
-    <!-- Filter Controls -->
+    <!-- Search and Date Filter controls -->
     <div class="manage-form">
-        <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: center;">
+        <h3>Filter Cash Flow Statement</h3>
+        <p style="font-size: 0.9rem; color: var(--text-color); margin-bottom: 15px;">
+               </p>
+        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr; gap: 15px; align-items: center;">
             <div>
-                <label for="cbh-category-filter">Category:</label>
-                <select id="cbh-category-filter" class="form-control" onchange="renderCashBookHistory()">
-                    <option value="all">All Transactions</option>
-                    <option value="in">Cash In (Deposit)</option>
-                    <option value="out">Cash Out (Withdrawal)</option>
-                </select>
-            </div>
-            <div>
-                <label for="cbh-search-input">Search Description / Name:</label>
-                <input type="text" id="cbh-search-input" class="form-control" placeholder="Search (e.g., Junaid)..." oninput="renderCashBookHistory()">
+                <label for="cb-history-search">Search by Name / Description:</label>
+                <input type="text" id="cb-history-search" class="form-control" placeholder="Type name ya details (e.g., Junaid)..." oninput="renderCashBookHistory()">
             </div>
             <div>
-                <label for="cbh-from-date">From Date:</label>
-                <input type="date" id="cbh-from-date" class="form-control" onchange="renderCashBookHistory()">
+                <label for="cb-history-from">From Date:</label>
+                <input type="date" id="cb-history-from" class="form-control" onchange="renderCashBookHistory()">
             </div>
             <div>
-                <label for="cbh-to-date">To Date:</label>
-                <input type="date" id="cbh-to-date" class="form-control" onchange="renderCashBookHistory()">
+                <label for="cb-history-to">To Date:</label>
+                <input type="date" id="cb-history-to" class="form-control" onchange="renderCashBookHistory()">
             </div>
-            <div style="align-self: flex-end;">
-                <button class="btn btn-info" onclick="generateCashBookHistoryPDF()">Download PDF Report</button>
-            </div>
+        </div>
+        <div class="manage-buttons" style="margin-top: 15px;">
+            <button class="btn btn-primary" onclick="renderCashBookHistory()">Apply Filters</button>
+            <button class="btn btn-secondary" onclick="resetCashBookHistoryFilters()">Reset Filters</button>
+            <button class="btn btn-info" onclick="generateCashBookHistoryPDF()">Generate PDF Report</button>
         </div>
     </div>
 
-    <!-- Summary Cards for Filtered Results -->
-    <div class="dashboard-section" style="margin-top: 20px;">
-        <h3 class="section-title">Filtered Summary</h3>
-        <div class="dashboard-grid">
-            <div class="dashboard-card">
-                <p class="card-title">Total Cash In</p>
-                <h2 id="cbh-summary-in" class="card-value sales">Rs. 0.00</h2>
-            </div>
-            <div class="dashboard-card">
-                <p class="card-title">Total Cash Out</p>
-                <h2 id="cbh-summary-out" class="card-value expenses">Rs. 0.00</h2>
-            </div>
-            <div class="dashboard-card">
-                <p class="card-title">Net Balance</p>
-                <h2 id="cbh-summary-net" class="card-value cash">Rs. 0.00</h2>
-            </div>
-        </div>
-    </div>
-
-    <!-- Detailed Table -->
-    <div class="table-container" style="flex-grow: 1; margin-top: 20px; overflow-y: auto;">
-        <h3>Transaction List</h3>
+    <!-- Detailed Ledger Table without Running Balance & Totals -->
+    <div class="table-container" style="flex-grow: 1; margin-top:20px;">
+        <h3>Filtered Statement Details</h3>
         <table class="cart-table">
             <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    <th>Running Balance</th>
-                </tr>
+               <tr>
+    <th>Date</th>
+    <th>Description</th>
+    <th>Cash In (Debit)</th>
+    <th>Cash Out (Credit)</th>
+    <th>Actions</th>
+</tr>
             </thead>
-            <tbody id="cash-book-history-tbody">
-                <!-- Data Javascript se render hoga -->
+            <tbody id="cash-history-table-body">
+                <!-- Data dynamically populated by JS -->
             </tbody>
         </table>
     </div>
 </div>
+<!-- END NEW MODULE: CASH BOOK HISTORY -->
                 
                 <!-- START NEW DASHBOARD MODULE -->
                 <div id="Dashboard" class="module-content active">
@@ -2073,6 +2058,158 @@
 
 <script>
 
+    let serverTimeOffset = 0; // Difference between correct internet time and client laptop clock
+
+// Application load hote hi real cloud time se sync karne ka function
+async function syncCloudTimeOffset() {
+    try {
+        // Pakistan (Asia/Karachi) timezone se exact real time fetch karna
+        const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Karachi');
+        if (response.ok) {
+            const data = await response.json();
+            const actualNetworkTime = data.unixtime * 1000; // actual network epoch time
+            const localMachineTime = Date.now();
+            
+            // Faraq (difference) save karna
+            serverTimeOffset = actualNetworkTime - localMachineTime;
+            console.log("Cloud Time synced! Time Offset calculated as: " + serverTimeOffset + " ms");
+        }
+    } catch (e) {
+        console.warn("WorldTime API offline hai. System local machine time par chal raha hai.", e);
+        serverTimeOffset = 0; 
+    }
+}
+
+// "new Date()" ki jagah hum hamesha is adjusted function ko call karenge
+function getCloudDate() {
+    return new Date(Date.now() + serverTimeOffset);
+}
+
+// exact local YYYY-MM-DD format lock karne ka function
+function getLocalDateString(dateInput = getCloudDate()) {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return dateInput; 
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
+    // --- FUNCTIONS TO EDIT & DELETE CASH HISTORY ENTRIES ---
+
+// --- 1. SAFE DATE FORMATTING HELPER ---
+function getLocalDateString(dateInput = new Date()) {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return dateInput; // Fallback agar pehle se formatted ho
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
+// --- 2. OLD DATA SANITIZATION (Missing IDs Fix) ---
+// Yeh function purane bina-ID wale records ko automatic unique IDs de dega
+function sanitizeCashBookLog() {
+    let changesMade = false;
+    if (Array.isArray(cashBookLog)) {
+        cashBookLog.forEach((log, index) => {
+            if (!log.id) {
+                log.id = 'cb_auto_' + Date.now() + '_' + index;
+                changesMade = true;
+            }
+        });
+    }
+    if (changesMade) {
+        saveCashBookLog(); // Local storage mein save karein
+        console.log("Purane Cash Book records ko automatic IDs de di gayi hain.");
+    }
+}
+
+// --- 3. EDIT BUTTON CLICK LOGIC ---
+function editCashBookTransaction(id) {
+    // Database ko sanitize karein taake koi bina ID ka record masla na kare
+    sanitizeCashBookLog();
+
+    const transaction = cashBookLog.find(log => log.id === id);
+    if (!transaction) {
+        alert("Ghalti: Is transaction ka record database mein nahi mila.");
+        return;
+    }
+
+    // Form inputs mein data fill karna
+    document.getElementById('edit-cash-id').value = id;
+    document.getElementById('edit-cash-type').value = transaction.type;
+    document.getElementById('edit-cash-amount').value = transaction.amount;
+    document.getElementById('edit-cash-description').value = transaction.description;
+    
+    // Sahi date format set karna
+    const formattedDate = getLocalDateString(transaction.date);
+    document.getElementById('edit-cash-date').value = formattedDate;
+
+    // Modal ko screen par show karna
+    const modal = document.getElementById('edit-cash-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    } else {
+        alert("Ghalti: 'edit-cash-modal' element page par mojud nahi hai.");
+    }
+}
+
+function closeEditCashModal() {
+    const modal = document.getElementById('edit-cash-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function saveCashBookHistoryEdit() {
+    const id = document.getElementById('edit-cash-id').value;
+    const type = document.getElementById('edit-cash-type').value;
+    const amount = parseFloat(document.getElementById('edit-cash-amount').value);
+    const description = document.getElementById('edit-cash-description').value.trim();
+    const dateVal = document.getElementById('edit-cash-date').value;
+
+    if (isNaN(amount) || amount <= 0) {
+        alert("Meharbani karke sahi raqam enter karein.");
+        return;
+    }
+    if (!description) {
+        alert("Description likhna zaruri hai.");
+        return;
+    }
+    if (!dateVal) {
+        alert("Date select karein.");
+        return;
+    }
+
+    const transactionIndex = cashBookLog.findIndex(log => log.id === id);
+    if (transactionIndex === -1) {
+        alert("Record database mein nahi mila.");
+        return;
+    }
+
+    // Values update karna
+    cashBookLog[transactionIndex].type = type;
+    cashBookLog[transactionIndex].amount = amount;
+    cashBookLog[transactionIndex].description = description;
+    cashBookLog[transactionIndex].date = new Date(dateVal + 'T12:00:00').toISOString();
+
+    recalculateCashBookBalances();
+    saveCashBookLog();
+
+    alert("Cash entry kamyabi se tabdeel ho gayi!");
+    closeEditCashModal();
+    
+    // Screens refresh karna
+    renderCashBookHistory();
+    if (typeof renderCashBook === 'function') renderCashBook();
+    renderDashboard();
+}
+
 
 // --- ADMIN DASHBOARD FUNCTIONS (FIREBASE VERSION) ---
 
@@ -2440,7 +2577,12 @@ const saveNotifications = () => saveGlobalData(NOTIFICATIONS_KEY, notifications)
 const savePartialPaymentInvoices = () => saveData(getUserSpecificKey("pos_app_partial_invoices"), partialPaymentInvoices);
 const savePurchasers = () => saveData(getUserSpecificKey(PURCHASERS_KEY), purchasers);
 const savePurchaseLog = () => saveData(getUserSpecificKey(PURCHASE_LOG_KEY), purchaseLog);
-const saveCashBookLog = () => saveData(getUserSpecificKey(CASH_BOOK_KEY), cashBookLog);
+const saveCashBookLog = () => {
+    // 1. Browser ke local storage mein save karein (Instant Update)
+    localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify(cashBookLog));
+    // 2. Firebase Cloud Database mein save karein (Permanent Backup)
+    saveData(getUserSpecificKey(CASH_BOOK_KEY), cashBookLog);
+};
 const saveGatePassLog = () => saveData(getUserSpecificKey(GATE_PASS_LOG_KEY), gatePassLog);
 const saveSellReturnsLog = () => saveData(getUserSpecificKey(SELL_RETURNS_KEY), sellReturnsLog);
 const saveStockUpdatesLog = () => saveData(getUserSpecificKey(STOCK_UPDATES_KEY), stockUpdatesLog);
@@ -2521,7 +2663,7 @@ function refreshAll() {
 
 // --- NEW DASHBOARD FUNCTIONS ---
 function renderDashboard() {
-    const getTodayString = () => new Date().toISOString().split('T')[0];
+const getTodayString = () => getLocalDateString(getCloudDate());
     const todayStr = getTodayString();
 
 const todaysSales = partialPaymentInvoices
@@ -3059,26 +3201,25 @@ function addPartialPaymentInvoice() {
     }));
 
     const newInvoice = {
-        invoiceId: newInvoiceId, 
-        customerName: customerName,
-        customerPhone: customerPhone,
-        totalAmount: totalAmount,
-        paidAmount: advancePayment,
-        remainingBalance: totalAmount - advancePayment,
-        status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
-        installments: numInstallments,
-        payments: advancePayment > 0 ?[{ 
-            paymentId: 'pay' + Date.now(), 
-            amount: advancePayment, 
-            date: new Date().toISOString(), 
-            method: paymentMethod, 
-            accountDetails: accountDetails,
-            notes: "Initial Payment" 
-        }] :[],
-        createdAt: new Date().toISOString(),
-        invoiceItems: invoiceItemsWithCost 
-    };
-
+    invoiceId: newInvoiceId, 
+    customerName: customerName,
+    customerPhone: customerPhone,
+    totalAmount: totalAmount,
+    paidAmount: advancePayment,
+    remainingBalance: totalAmount - advancePayment,
+    status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
+    installments: numInstallments,
+    payments: advancePayment > 0 ?[{ 
+        paymentId: 'pay' + Date.now(), 
+        amount: advancePayment, 
+        date: getCloudDate().toISOString(), // Adjusted Cloud Time
+        method: paymentMethod, 
+        accountDetails: accountDetails,
+        notes: "Initial Payment" 
+    }] :[],
+    createdAt: getCloudDate().toISOString(), // Adjusted Cloud Time
+    invoiceItems: invoiceItemsWithCost 
+};
     partialPaymentInvoices.push(newInvoice);
     savePartialPaymentInvoices();
 
@@ -3843,31 +3984,22 @@ function processSellReturn() {
     });
 
     const returnLogEntry = {
-        id: 'ret' + Date.now(),
-        originalInvoiceId: selectedInvoiceForReturn.invoiceId,
-        clientName: selectedInvoiceForReturn.customerName,
-        clientPhone: selectedInvoiceForReturn.customerPhone,
-        creditedItems: creditedItems,
-        debitedItems: debitedItems,
-        netAmount: netAmount,
-        reason: reason,
-        date: new Date().toISOString()
-    };
+    id: 'ret' + Date.now(),
+    originalInvoiceId: selectedInvoiceForReturn.invoiceId,
+    clientName: selectedInvoiceForReturn.customerName,
+    clientPhone: selectedInvoiceForReturn.customerPhone,
+    creditedItems: creditedItems,
+    debitedItems: debitedItems,
+    netAmount: netAmount,
+    reason: reason,
+    date: getCloudDate().toISOString() // Adjusted Cloud Time
+};
     sellReturnsLog.push(returnLogEntry);
 
     const originalInvoiceIndex = partialPaymentInvoices.findIndex(inv => inv.invoiceId == selectedInvoiceForReturn.invoiceId);
     if (originalInvoiceIndex !== -1) {
         let inv = partialPaymentInvoices[originalInvoiceIndex];
         
-        // 1. Returned items ki quantity ko original invoice ke items se minus karein
-        creditedItems.forEach(retItem => {
-            const itemInInvoice = inv.invoiceItems.find(i => i.id === retItem.id);
-            if (itemInInvoice) {
-                itemInInvoice.quantity -= retItem.quantity;
-            }
-        });
-
-        // 2. Phir filter karein taake 0 quantity wale items list se hat jayein
         inv.invoiceItems = inv.invoiceItems.filter(item => item.quantity > 0);
 
         const returnDetailsText = creditedItems.map(i => `${i.name} (Qty: ${i.quantity})`).join(", ");
@@ -5815,7 +5947,7 @@ function addCashToBook() {
         return;
     }
     
-    addTransactionToCashBook(description, 'in', amount, new Date());
+addTransactionToCashBook(description, 'in', amount, getCloudDate()); // Adjusted Cloud Time
     
     alert(`Successfully added ${CURRENCY_SYMBOL}${amount.toFixed(2)} to the cash book.`);
     
@@ -5844,10 +5976,10 @@ function addCashOut() {
     }
 
     const fullDescription = `${description} (Paid To: ${paidTo})`;
-    const now = new Date();
-    const newLogEntry = {
-        id: 'cb' + Date.now(),
-        date: now.toISOString(),
+    const now = getCloudDate(); // Adjusted Cloud Time
+const newLogEntry = {
+    id: 'cb' + Date.now(),
+    date: now.toISOString(),
         description: fullDescription,
         paidTo: paidTo, 
         reason: description, 
@@ -6051,21 +6183,21 @@ function renderBankAndCash(filterDate = null) {
 
     const balances = { 'Cash': 0 };
     const dateLabel = `(${new Date(filterDate).toLocaleDateString()})`;
-    // ------------------------------------------------------------------
     
     document.getElementById('bc-date-label-cash').textContent = dateLabel;
     document.getElementById('bc-date-label-bank').textContent = dateLabel;
 
+    // Accounts ki settings se payment methods read karna
     document.querySelectorAll('#partial-payment-method option').forEach(opt => {
         if (opt.value && !opt.disabled) balances[opt.value] = 0;
     });
 
-    const isSameDate = (dateString) => {
+    const isSameDate = (isoString) => {
         if (!filterDate) return true; 
-        return dateString.split('T')[0] === filterDate;
+        return isoString.split('T')[0] === filterDate;
     };
 
-    // 1. Point of Sale (POS) invoices payments (Income) add karein
+    // 1. LINK WITH POS: Customer payments ko unke selected account/method mein plus karna
     partialPaymentInvoices.forEach(inv => {
         (inv.payments || []).forEach(p => {
             if (isSameDate(p.date)) {
@@ -6075,14 +6207,18 @@ function renderBankAndCash(filterDate = null) {
         });
     });
 
-    // 2. Expenses (Kharchay) ko "Cash" account se deduct karein
+    // 2. LINK WITH EXPENSES: Us date ke Expenses ko "Cash" balance se minus karna
     expenses.forEach(exp => {
-        if (isSameDate(exp.date)) {
+        let expDate = exp.date;
+        if (expDate.includes('T')) expDate = expDate.split('T')[0];
+        
+        if (expDate === filterDate) {
+            // Expenses ko direct Cash se deduct kiya ja raha hai
             balances['Cash'] = (balances['Cash'] || 0) - exp.amount;
         }
     });
 
-    // (Sell Returns aur baqi details yahan se hata di gayi hain)
+    // 3. REMOVED OTHER LINKS: Sell Return ya kisi bhi aur transaction ka link yahan se khatam kar diya gaya hai.
 
     const cashBalance = balances['Cash'] || 0;
     let bankTotal = 0;
@@ -7704,12 +7840,12 @@ function renderPermissionsManagement() {
     container.innerHTML = '';
 
     const modules = [
-        'Dashboard', 'Products', 'ManageProducts', 'ProductStockReport',
-        'PartialPayments', 'SellReturn', 'AllReports', 'ProfitLossStatement',
-        'PurchasePurchaserDetail', 'PurchaseProductPayment', 'PurchaseAddPayment',
-        'PurchaseHistory', 'PurchaseReports', 'AddExpense', 'ExpenseHistory',
-        'GatePass', 'GatePassHistory', 'CashBook', 'BankAndCash', 'Settings'
-    ];
+    'Dashboard', 'Products', 'ManageProducts', 'ProductStockReport',
+    'PartialPayments', 'SellReturn', 'AllReports', 'ProfitLossStatement',
+    'PurchasePurchaserDetail', 'PurchaseProductPayment', 'PurchaseAddPayment',
+    'PurchaseHistory', 'PurchaseReports', 'AddExpense', 'ExpenseHistory',
+    'GatePass', 'GatePassHistory', 'CashBook', 'CashBookHistory', 'BankAndCash', 'Settings'
+];
 
     const role = 'client';
     if (!appSettings.permissions) {
@@ -7881,7 +8017,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initializeApp() {
     // 1. Loader screen (User notification)
-    const originalWelcome = document.getElementById('trial-status-message').textContent;
+    await syncCloudTimeOffset();
     document.getElementById('trial-status-message').textContent = "☁️ Realtime Cloud se settings load ho rahi hain...";
 
     // 2. Direct online settings load karein
@@ -8044,26 +8180,7 @@ async function openModule(evt, moduleName) {
     button.innerHTML = "⏳ Loading...";
     button.disabled = true;
 
-
-
     try {
-if (moduleName === 'CashBookHistory') {
-    await dbFetchPurchaseLog();
-    await dbFetchCashBook();
-    await dbFetchInvoices();
-    await dbFetchExpenses();
-    await dbFetchSellReturns();
-    await dbFetchPurchasers();
-    
-    // Inputs ko default values par set karein
-    document.getElementById('cbh-category-filter').value = 'all';
-    document.getElementById('cbh-search-input').value = '';
-    document.getElementById('cbh-from-date').value = '';
-    document.getElementById('cbh-to-date').value = '';
-    
-    renderCashBookHistory();
-}
-
         // --- LAZY LOADING ACCORDING TO SELECTED TAB ---
         if (moduleName === 'Dashboard') {
             await dbFetchInvoices();
@@ -8081,6 +8198,10 @@ if (moduleName === 'CashBookHistory') {
             await dbFetchProducts();
             resetManagedProductForm();
             renderManageProductsList();
+        
+        
+        
+        
         }
         if (moduleName === 'ProductStockReport') {
             await dbFetchProducts();
@@ -8181,6 +8302,16 @@ if (moduleName === 'SellReturn') {
             await dbFetchSellReturns();
             renderCashBook();
         }
+
+        if (moduleName === 'CashBookHistory') {
+    await dbFetchPurchaseLog();
+    await dbFetchCashBook();
+    await dbFetchInvoices();
+    await dbFetchExpenses();
+    await dbFetchSellReturns();
+    renderCashBookHistory();
+}
+
         if (moduleName === 'BankAndCash') {
             await dbFetchInvoices();
             await dbFetchPurchaseLog();
@@ -8673,17 +8804,196 @@ function deleteBankCategory(bankName) {
     }
 }
 
-// 1. Tamaam Cash transactions (Sales, Purchases, Expenses, Returns aur Manual entries) ko aik list main jama karne ka helper function
-function getUnifiedCashHistory() {
-    let list = [];
 
-    // A. Detailed Customer POS Invoice Payments (Cash In)
+// --- NEW FUNCTIONS FOR CASH BOOK HISTORY ---
+
+function renderCashBookHistory() {
+    const tbody = document.getElementById('cash-history-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const searchQuery = (document.getElementById('cb-history-search')?.value || '').trim().toLowerCase();
+    const fromDateVal = document.getElementById('cb-history-from')?.value;
+    const toDateVal = document.getElementById('cb-history-to')?.value;
+
+    let allTransactions = [];
+
+    // 1. Manual Cash Book Log Entries (Including IDs)
+    cashBookLog.forEach(log => {
+        allTransactions.push({
+            id: log.id, // Edit/Delete ke liye zaruri hai
+            date: new Date(log.date),
+            description: log.description || '',
+            type: log.type,
+            amount: log.amount,
+            isManual: true // Manual check flag
+        });
+    });
+
+    // 2. Sales payments
     partialPaymentInvoices.forEach(inv => {
         (inv.payments || []).forEach(p => {
             if (p.amount > 0) {
-                list.push({
+                allTransactions.push({
+                    id: p.paymentId,
                     date: new Date(p.date),
-                    description: `Customer POS Sale: Inv #${inv.invoiceId} - ${inv.customerName} (${p.notes || 'No Notes'})`,
+                    description: `Sale Receipt (Inv #${inv.invoiceId}) - Customer: ${inv.customerName}`,
+                    type: 'in',
+                    amount: p.amount,
+                    isManual: false
+                });
+            }
+        });
+    });
+
+    // 3. Expenses
+    expenses.forEach(exp => {
+        allTransactions.push({
+            id: exp.id,
+            date: new Date(exp.date + 'T12:00:00'),
+            description: `Expense: ${exp.category} - ${exp.description || ''}`,
+            type: 'out',
+            amount: exp.amount,
+            isManual: false
+        });
+    });
+
+    // 4. Sell Returns
+    sellReturnsLog.forEach(ret => {
+        if (ret.netAmount > 0) {
+            allTransactions.push({
+                id: ret.id,
+                date: new Date(ret.date),
+                description: `Refund for Sell Return (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`,
+                type: 'out',
+                amount: ret.netAmount,
+                isManual: false
+            });
+        } else if (ret.netAmount < 0) {
+            allTransactions.push({
+                id: ret.id,
+                date: new Date(ret.date),
+                description: `Payment for Exchange (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`,
+                type: 'in',
+                amount: Math.abs(ret.netAmount),
+                isManual: false
+            });
+        }
+    });
+
+    // 5. Purchaser Payments
+    purchaseLog.forEach(log => {
+        const purchaser = purchasers.find(p => p.id === log.purchaserId);
+        const pName = purchaser ? purchaser.name : 'Unknown';
+        (log.payments || []).forEach(p => {
+            if (p.amount > 0) {
+                allTransactions.push({
+                    id: p.txnId,
+                    date: new Date(p.date),
+                    description: `Payment To Purchaser (${pName}) - Bill: ${log.billNo}`,
+                    type: 'out',
+                    amount: p.amount,
+                    isManual: false
+                });
+            }
+        });
+    });
+
+    // Sort Newest First
+    allTransactions.sort((a, b) => b.date - a.date);
+
+    // Filter by Date Range
+    if (fromDateVal) {
+        const fromDateObj = new Date(fromDateVal + 'T00:00:00');
+        allTransactions = allTransactions.filter(t => t.date >= fromDateObj);
+    }
+    if (toDateVal) {
+        const toDateObj = new Date(toDateVal + 'T23:59:59');
+        allTransactions = allTransactions.filter(t => t.date <= toDateObj);
+    }
+
+    // Filter by Search
+    if (searchQuery) {
+        allTransactions = allTransactions.filter(t => 
+            t.description.toLowerCase().includes(searchQuery)
+        );
+    }
+
+    if (allTransactions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No matching transactions found.</td></tr>';
+        return;
+    }
+
+    allTransactions.forEach(t => {
+        const row = document.createElement('tr');
+        const dateStr = t.date ? t.date.toLocaleDateString() : '-';
+        const cashIn = t.type === 'in' ? `${CURRENCY_SYMBOL}${t.amount.toFixed(2)}` : '-';
+        const cashOut = t.type === 'out' ? `${CURRENCY_SYMBOL}${t.amount.toFixed(2)}` : '-';
+
+        // Safe Actions Column: Sirf Manual Entries par Edit/Delete active hoga
+        let actionsHTML = `<small style="color:var(--text-color); font-style: italic;">System Linked</small>`;
+        if (t.isManual) {
+            actionsHTML = `
+                <button class="btn btn-sm btn-warning" onclick="editCashBookTransaction('${t.id}')">Edit</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteCashBookTransaction('${t.id}')">Delete</button>
+            `;
+        }
+
+        row.innerHTML = `
+            <td>${dateStr}</td>
+            <td>${t.description}</td>
+            <td style="color:var(--success-color); font-weight:bold;">${cashIn}</td>
+            <td style="color:var(--danger-color); font-weight:bold;">${cashOut}</td>
+            <td>${actionsHTML}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function resetCashBookHistoryFilters() {
+    if (document.getElementById('cb-history-search')) document.getElementById('cb-history-search').value = '';
+    if (document.getElementById('cb-history-from')) document.getElementById('cb-history-from').value = '';
+    if (document.getElementById('cb-history-to')) document.getElementById('cb-history-to').value = '';
+    renderCashBookHistory();
+}
+
+function generateCashBookHistoryPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const searchQuery = (document.getElementById('cb-history-search')?.value || '').trim();
+    const fromDateVal = document.getElementById('cb-history-from')?.value;
+    const toDateVal = document.getElementById('cb-history-to')?.value;
+
+    let reportTitle = "Cash Book Flow Statement";
+    if (searchQuery) {
+        reportTitle += ` - Filter: ${searchQuery}`;
+    }
+
+    let yPos = 20;
+    doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+    doc.text(appSettings.restaurantName || "FJM Social Media", 105, yPos, { align: 'center' }); yPos += 8;
+    doc.setFontSize(14);
+    doc.text(reportTitle, 105, yPos, { align: 'center' }); yPos += 8;
+    
+    if (fromDateVal || toDateVal) {
+        doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+        doc.text(`Period: ${fromDateVal || 'Start'} to ${toDateVal || 'End'}`, 105, yPos, { align: 'center' }); yPos += 8;
+    }
+
+    // Re-collect data for PDF
+    let allTransactions = [];
+
+    cashBookLog.forEach(log => {
+        allTransactions.push({ date: new Date(log.date), description: log.description || '', type: log.type, amount: log.amount });
+    });
+
+    partialPaymentInvoices.forEach(inv => {
+        (inv.payments || []).forEach(p => {
+            if (p.amount > 0) {
+                allTransactions.push({
+                    date: new Date(p.date),
+                    description: `Sale Receipt (Inv #${inv.invoiceId}) - Customer: ${inv.customerName}`,
                     type: 'in',
                     amount: p.amount
                 });
@@ -8691,246 +9001,228 @@ function getUnifiedCashHistory() {
         });
     });
 
-    // B. Detailed Purchaser Payments (Cash Out)
+    expenses.forEach(exp => {
+        allTransactions.push({ date: new Date(exp.date + 'T12:00:00'), description: `Expense: ${exp.category} - ${exp.description || ''}`, type: 'out', amount: exp.amount });
+    });
+
+    sellReturnsLog.forEach(ret => {
+        if (ret.netAmount > 0) {
+            allTransactions.push({ date: new Date(ret.date), description: `Refund for Sell Return (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`, type: 'out', amount: ret.netAmount });
+        } else if (ret.netAmount < 0) {
+            allTransactions.push({ date: new Date(ret.date), description: `Payment for Exchange (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`, type: 'in', amount: Math.abs(ret.netAmount) });
+        }
+    });
+
     purchaseLog.forEach(log => {
         const purchaser = purchasers.find(p => p.id === log.purchaserId);
-        const pName = purchaser ? purchaser.name : 'Unknown Supplier';
+        const pName = purchaser ? purchaser.name : 'Unknown';
         (log.payments || []).forEach(p => {
             if (p.amount > 0) {
-                list.push({
-                    date: new Date(p.date),
-                    description: `Purchaser Bill Payment: Bill #${log.billNo || log.id} - ${pName} (${p.notes || 'No Notes'})`,
-                    type: 'out',
-                    amount: p.amount
-                });
+                allTransactions.push({ date: new Date(p.date), description: `Payment To Purchaser (${pName}) - Bill: ${log.billNo}`, type: 'out', amount: p.amount });
             }
         });
     });
 
-    // C. Operating Expenses (Cash Out)
-    expenses.forEach(exp => {
-        list.push({
-            date: new Date(exp.date + 'T12:00:00'), // Local date safety parsing
-            description: `Expense [${exp.category}]: ${exp.description || 'No Description'}`,
-            type: 'out',
-            amount: exp.amount
-        });
+    allTransactions.sort((a, b) => b.date - a.date);
+
+    // Filter
+    if (fromDateVal) {
+        const fromDateObj = new Date(fromDateVal + 'T00:00:00');
+        allTransactions = allTransactions.filter(t => t.date >= fromDateObj);
+    }
+    if (toDateVal) {
+        const toDateObj = new Date(toDateVal + 'T23:59:59');
+        allTransactions = allTransactions.filter(t => t.date <= toDateObj);
+    }
+    if (searchQuery) {
+        allTransactions = allTransactions.filter(t => 
+            t.description.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }
+
+    const tableData = allTransactions.map(t => [
+        t.date ? t.date.toLocaleDateString() : '-',
+        t.description,
+        t.type === 'in' ? `${CURRENCY_SYMBOL}${t.amount.toFixed(2)}` : '-',
+        t.type === 'out' ? `${CURRENCY_SYMBOL}${t.amount.toFixed(2)}` : '-'
+    ]);
+
+    // We do not add any footer totals, maintaining simple table.
+    doc.autoTable({
+        startY: yPos + 5,
+        head: [['Date', 'Description', 'Cash In', 'Cash Out']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [31, 41, 55] }
     });
 
-    // D. Detailed Sell Returns (Refunds aur Collections)
-    sellReturnsLog.forEach(ret => {
-        if (ret.netAmount > 0) {
-            list.push({
-                date: new Date(ret.date),
-                description: `Return Refund Given: Inv #${ret.originalInvoiceId} - ${ret.clientName} (${ret.reason})`,
-                type: 'out',
-                amount: ret.netAmount
-            });
-        } else if (ret.netAmount < 0) {
-            list.push({
-                date: new Date(ret.date),
-                description: `Return Collection: Inv #${ret.originalInvoiceId} - ${ret.clientName} (${ret.reason})`,
-                type: 'in',
-                amount: Math.abs(ret.netAmount)
-            });
-        }
-    });
-
-    // E. Manual Cash Book Log (Other entries ko handle karne ke liye)
-    cashBookLog.forEach(log => {
-        // Double counting se bachne ke liye automatic system entries ko skip karein
-        if (log.id && (log.id.startsWith('ptxn') || log.id.startsWith('cb_ret_') || log.id.startsWith('cb_sale_') || log.id.startsWith('cb_spay_') || log.id.startsWith('cb_pch_') || log.id.startsWith('cb_exp_'))) {
-            return;
-        }
-        list.push({
-            date: new Date(log.date),
-            description: log.description || (log.type === 'in' ? 'Manual Cash In' : 'Manual Cash Out'),
-            type: log.type,
-            amount: log.amount
-        });
-    });
-
-    // Date ke hisab se order karein (Purani se Nayi ki taraf taake running balance sahi aaye)
-    list.sort((a, b) => a.date - b.date);
-
-    // Running Balance compute karein
-    let runningBalance = 0;
-    list.forEach(item => {
-        if (item.type === 'in') {
-            runningBalance += item.amount;
-        } else {
-            runningBalance -= item.amount;
-        }
-        item.runningBalance = runningBalance;
-    });
-
-    return list;
+    doc.save(`Cash_Book_Statement_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
-// 2. Main interface par table aur cards ko render karne ka function
-function renderCashBookHistory() {
-    const categoryFilter = document.getElementById('cbh-category-filter').value;
-    const searchQuery = document.getElementById('cbh-search-input').value.toLowerCase();
-    const fromDateStr = document.getElementById('cbh-from-date').value;
-    const toDateStr = document.getElementById('cbh-to-date').value;
+// =========================================================
+// NEW CASH BOOK HISTORY EDIT & DELETE ACTIONS (ADD AT THE END)
+// =========================================================
 
-    const tbody = document.getElementById('cash-book-history-tbody');
-    tbody.innerHTML = '';
-
-    const allHistory = getUnifiedCashHistory();
-
-    // Filters apply karein
-    const filteredHistory = allHistory.filter(txn => {
-        // Category Filter
-        if (categoryFilter !== 'all' && txn.type !== categoryFilter) {
-            return false;
-        }
-
-        // Text Search Filter (Naam ya Description matches)
-        if (searchQuery && !txn.description.toLowerCase().includes(searchQuery)) {
-            return false;
-        }
-
-        // Date Range Filter
-        if (fromDateStr) {
-            const fromDate = new Date(fromDateStr + 'T00:00:00');
-            if (txn.date < fromDate) return false;
-        }
-        if (toDateStr) {
-            const toDate = new Date(toDateStr + 'T23:59:59');
-            if (txn.date > toDate) return false;
-        }
-
-        return true;
-    });
-
-    // Calculations for Summary Cards (Filtered subset ke mutabik)
-    let totalIn = 0;
-    let totalOut = 0;
-
-    filteredHistory.forEach(txn => {
-        if (txn.type === 'in') totalIn += txn.amount;
-        else totalOut += txn.amount;
-    });
-
-    const netBalance = totalIn - totalOut;
-
-    // Display values in Summary Cards
-    document.getElementById('cbh-summary-in').textContent = `Rs. ${totalIn.toFixed(2)}`;
-    document.getElementById('cbh-summary-out').textContent = `Rs. ${totalOut.toFixed(2)}`;
+// Safe date generator
+function getLocalDateString(dateInput = new Date()) {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return dateInput;
     
-    const netEl = document.getElementById('cbh-summary-net');
-    netEl.textContent = `Rs. ${netBalance.toFixed(2)}`;
-    netEl.className = netBalance >= 0 ? 'card-value sales' : 'card-value expenses';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
 
-    // Renders Rows into Table (Latest on top)
-    const displayList = [...filteredHistory].reverse();
+// Old missing IDs sanitizer
+function sanitizeCashBookLog() {
+    let changesMade = false;
+    if (Array.isArray(cashBookLog)) {
+        cashBookLog.forEach((log, index) => {
+            if (!log.id) {
+                log.id = 'cb_auto_' + Date.now() + '_' + index;
+                changesMade = true;
+            }
+        });
+    }
+    if (changesMade) {
+        saveCashBookLog();
+    }
+}
 
-    if (displayList.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No matching transactions found.</td></tr>';
+// Edit function trigger
+function editCashBookTransaction(id) {
+    sanitizeCashBookLog();
+
+    const transaction = cashBookLog.find(log => log.id === id);
+    if (!transaction) {
+        alert("Ghalti: Is transaction ka record database mein nahi mila.");
         return;
     }
 
-    displayList.forEach(txn => {
-        const row = document.createElement('tr');
-        const typeLabel = txn.type === 'in' ? 'Cash In' : 'Cash Out';
-        const typeColor = txn.type === 'in' ? 'var(--success-color)' : 'var(--danger-color)';
+    document.getElementById('edit-cash-id').value = id;
+    document.getElementById('edit-cash-type').value = transaction.type;
+    document.getElementById('edit-cash-amount').value = transaction.amount;
+    document.getElementById('edit-cash-description').value = transaction.description;
+    
+    const formattedDate = getLocalDateString(transaction.date);
+    document.getElementById('edit-cash-date').value = formattedDate;
 
-        row.innerHTML = `
-            <td>${txn.date.toLocaleDateString()}</td>
-            <td>${txn.description}</td>
-            <td style="color:${typeColor}; font-weight:bold;">${typeLabel}</td>
-            <td style="color:${typeColor}; font-weight:bold;">Rs. ${txn.amount.toFixed(2)}</td>
-            <td style="font-weight:bold;">Rs. ${txn.runningBalance.toFixed(2)}</td>
-        `;
-        tbody.appendChild(row);
-    });
+    const modal = document.getElementById('edit-cash-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
 }
 
-// 3. Filtered data ki PDF report download karne ka function
-function generateCashBookHistoryPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    let yPos = 20;
-
-    const categoryFilter = document.getElementById('cbh-category-filter').value;
-    const searchQuery = document.getElementById('cbh-search-input').value.trim();
-    const fromDateStr = document.getElementById('cbh-from-date').value;
-    const toDateStr = document.getElementById('cbh-to-date').value;
-
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text(appSettings.restaurantName || "FJM Social Media", 105, yPos, { align: 'center' });
-    yPos += 8;
-
-    doc.setFontSize(14);
-    doc.text('Cash Book History Statement', 105, yPos, { align: 'center' });
-    yPos += 8;
-
-    // Applied Filters Summary on PDF
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    let filterDetails = `Category: ${categoryFilter.toUpperCase()}`;
-    if (searchQuery) filterDetails += ` | Search: "${searchQuery}"`;
-    if (fromDateStr || toDateStr) {
-        filterDetails += ` | Dates: ${fromDateStr || 'Start'} to ${toDateStr || 'End'}`;
+function closeEditCashModal() {
+    const modal = document.getElementById('edit-cash-modal');
+    if (modal) {
+        modal.style.display = 'none';
     }
-    doc.text(filterDetails, 105, yPos, { align: 'center' });
-    yPos += 15;
+}
 
-    // Filter and collect data for PDF table
-    const allHistory = getUnifiedCashHistory();
-    const filteredHistory = allHistory.filter(txn => {
-        if (categoryFilter !== 'all' && txn.type !== categoryFilter) return false;
-        if (searchQuery && !txn.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-        if (fromDateStr && txn.date < new Date(fromDateStr + 'T00:00:00')) return false;
-        if (toDateStr && txn.date > new Date(toDateStr + 'T23:59:59')) return false;
-        return true;
-    });
+function saveCashBookHistoryEdit() {
+    const id = document.getElementById('edit-cash-id').value;
+    const type = document.getElementById('edit-cash-type').value;
+    const amount = parseFloat(document.getElementById('edit-cash-amount').value);
+    const description = document.getElementById('edit-cash-description').value.trim();
+    const dateVal = document.getElementById('edit-cash-date').value;
 
-    let totalIn = 0;
-    let totalOut = 0;
-    const tableRows = filteredHistory.map(txn => {
-        if (txn.type === 'in') totalIn += txn.amount;
-        else totalOut += txn.amount;
+    if (isNaN(amount) || amount <= 0) {
+        alert("Meharbani karke sahi raqam enter karein.");
+        return;
+    }
+    if (!description) {
+        alert("Description likhna zaruri hai.");
+        return;
+    }
+    if (!dateVal) {
+        alert("Date select karein.");
+        return;
+    }
 
-        return [
-            txn.date.toLocaleDateString(),
-            txn.description,
-            txn.type === 'in' ? 'Cash In' : 'Cash Out',
-            `Rs. ${txn.amount.toFixed(2)}`,
-            `Rs. ${txn.runningBalance.toFixed(2)}`
-        ];
-    });
+    const transactionIndex = cashBookLog.findIndex(log => log.id === id);
+    if (transactionIndex === -1) {
+        alert("Record database mein nahi mila.");
+        return;
+    }
 
-    const netBalance = totalIn - totalOut;
+    cashBookLog[transactionIndex].type = type;
+    cashBookLog[transactionIndex].amount = amount;
+    cashBookLog[transactionIndex].description = description;
+    cashBookLog[transactionIndex].date = new Date(dateVal + 'T12:00:00').toISOString();
 
-    // Generate AutoTable
-    doc.autoTable({
-        startY: yPos,
-        head: [['Date', 'Description', 'Category', 'Amount', 'Running Balance']],
-        body: tableRows,
-        theme: 'grid',
-        headStyles: { fillColor: [42, 105, 185], textColor: 255 },
-        styles: { fontSize: 9 }
-    });
+    recalculateCashBookBalances();
+    saveCashBookLog();
 
-    yPos = doc.previousAutoTable.finalY + 12;
+    alert("Cash entry kamyabi se tabdeel ho gayi!");
+    closeEditCashModal();
+    
+    renderCashBookHistory();
+    if (typeof renderCashBook === 'function') renderCashBook();
+    renderDashboard();
+}
 
-    // Add Summary at the bottom
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Total Cash In: Rs. ${totalIn.toFixed(2)}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Total Cash Out: Rs. ${totalOut.toFixed(2)}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Net Balance: Rs. ${netBalance.toFixed(2)}`, 14, yPos);
+// Delete function trigger
+function deleteCashBookTransaction(id) {
+    if (!id || id === 'undefined') {
+        alert("System Warning: Is entry ki security ID ghalat hai. Page ko Ctrl+F5 daba kar hard refresh karein taake system naye IDs generate kar sake.");
+        return;
+    }
 
-    doc.save(`Cash_Book_History_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    if (!confirm("Kya aap waqai is cash transaction ko mukammal taur par delete karna chahte hain?")) {
+        return;
+    }
+
+    const initialLength = cashBookLog.length;
+    cashBookLog = cashBookLog.filter(log => log.id && log.id !== id);
+
+    if (cashBookLog.length === initialLength) {
+        alert("Database Warning: Record delete karne mein masla pesh aya. Page refresh kar ke dubara koshish karein.");
+        return;
+    }
+
+    saveCashBookLog();
+
+    alert("Transaction kamyabi se delete ho gayi.");
+    
+    renderCashBookHistory();
+    if (typeof renderCashBook === 'function') renderCashBook();
+    renderDashboard();
 }
 
 
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"e3c1c9af36de41759418005494a48906","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+
+<!-- EDIT CASH TRANSACTION MODAL -->
+<div id="edit-cash-modal" class="modal-backdrop">
+    <div class="modal-content">
+        <h3 class="panel-title">Edit Cash Entry</h3>
+        <input type="hidden" id="edit-cash-id">
+        <div class="form-grid">
+            <label for="edit-cash-type">Transaction Type:</label>
+            <select id="edit-cash-type" class="form-control">
+                <option value="in">Cash In (Deposit)</option>
+                <option value="out">Cash Out (Withdrawal)</option>
+            </select>
+
+            <label for="edit-cash-amount">Amount (Rs.):</label>
+            <input type="number" id="edit-cash-amount" class="form-control" placeholder="Enter amount">
+
+            <label for="edit-cash-description">Description:</label>
+            <input type="text" id="edit-cash-description" class="form-control" placeholder="Enter details">
+
+            <label for="edit-cash-date">Date:</label>
+            <input type="date" id="edit-cash-date" class="form-control">
+        </div>
+        <div class="manage-buttons" style="margin-top: 20px;">
+            <button class="btn btn-success" onclick="saveCashBookHistoryEdit()">Save Changes</button>
+            <button class="btn btn-secondary" onclick="closeEditCashModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
