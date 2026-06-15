@@ -5827,100 +5827,19 @@ function renderCashBook() {
     const balanceDisplay = document.getElementById('cash-balance-display');
     if(!tbody) return;
     tbody.innerHTML = '';
-    
-    let allTransactions =[];
 
-    const purchaserPaymentsMap = {};
-    purchaseLog.forEach(log => {
-        const purchaser = purchasers.find(p => p.id === log.purchaserId);
-        const pName = purchaser ? purchaser.name : 'Unknown';
-        (log.payments ||[]).forEach(p => {
-            if (p.amount > 0) {
-                const key = p.txnId || (`old_${pName}_${p.date}`);
-                if (!purchaserPaymentsMap[key]) {
-                    purchaserPaymentsMap[key] = {
-                        date: new Date(p.date),
-                        description: `Payment To Purchase (${pName})`,
-                        type: 'out',
-                        amount: 0
-                    };
-                }
-                purchaserPaymentsMap[key].amount += p.amount;
-            }
-        });
-    });
-    Object.values(purchaserPaymentsMap).forEach(txn => allTransactions.push(txn));
+    const allTransactions = buildCashBookTransactions();
 
-    cashBookLog.forEach(log => {
-        if (log.id && (log.id.startsWith('ptxn') || log.id.startsWith('cb_ret_') || log.id.startsWith('cb_sale_') || log.id.startsWith('cb_spay_') || log.id.startsWith('cb_pch_') || log.id.startsWith('cb_exp_') || log.id.startsWith('cb_lab_'))) return; 
-        
-        const desc = log.description || '';
-        if (desc.startsWith('Labor Advance given to') || desc.startsWith('Salary Paid to') || desc.includes('(Paid To: junaid)')) return;
+    // Reverse order taake newest entry hamesha upar show ho
+    const reversedTransactions = [...allTransactions].reverse();
 
-        allTransactions.push({
-            date: new Date(log.date), description: log.description || (log.type === 'in' ? 'Cash in' : 'Cash out'), type: log.type, amount: log.amount
-        });
-    });
-
-    const dailyNet = {};
-
-    partialPaymentInvoices.forEach(inv => {
-        (inv.payments ||[]).forEach(p => {
-            if (p.amount > 0) {
-               const d = new Date(p.date).toLocaleDateString('en-CA');
-                dailyNet[d] = (dailyNet[d] || 0) + p.amount;
-            }
-        });
-    });
-
-    expenses.forEach(exp => {
-        let expDate = exp.date;
-        if(expDate.includes('T')) expDate = expDate.split('T')[0];
-        dailyNet[expDate] = (dailyNet[expDate] || 0) - exp.amount;
-    });
-
-    sellReturnsLog.forEach(ret => {
-        if (ret.netAmount > 0) { 
-            const d = new Date(ret.date).toISOString().split('T')[0];
-            dailyNet[d] = (dailyNet[d] || 0) - ret.netAmount;
-        }
-    });
-
-    for (const [dateStr, amount] of Object.entries(dailyNet)) {
-        if (amount !== 0) {
-            allTransactions.push({
-                date: new Date(dateStr + 'T23:59:00'), 
-                description: 'Remaining Balance',
-                type: amount > 0 ? 'in' : 'out',
-                amount: Math.abs(amount),
-                isDailyNet: true
-            });
-        }
-    }
-
-    allTransactions.sort((a, b) => a.date - b.date);
-
-    let currentBalance = 0;
-    const finalDisplayData =[];
-
-    allTransactions.forEach(txn => {
-        if (txn.type === 'in') currentBalance += txn.amount;
-        else currentBalance -= txn.amount;
-        
-        txn.runningBalance = currentBalance; 
-        finalDisplayData.push(txn);
-    });
-
-    const reversedData = [...finalDisplayData].reverse();
-
-    reversedData.forEach(txn => {
+    reversedTransactions.forEach(txn => {
         const row = document.createElement('tr');
         const dateStr = txn.date ? txn.date.toLocaleDateString() : '-';
-        let descStyle = txn.isDailyNet ? 'font-weight:bold; color:var(--info-color);' : '';
         
         row.innerHTML = `
             <td>${dateStr}</td>
-            <td style="${descStyle}">${txn.description}</td>
+            <td>${txn.description}</td>
             <td style="color:var(--success-color); font-weight:bold;">${txn.type === 'in' ? CURRENCY_SYMBOL + txn.amount.toFixed(2) : '-'}</td>
             <td style="color:var(--danger-color); font-weight:bold;">${txn.type === 'out' ? CURRENCY_SYMBOL + txn.amount.toFixed(2) : '-'}</td>
             <td style="font-weight:bold;">${CURRENCY_SYMBOL}${txn.runningBalance.toFixed(2)}</td>
@@ -5928,7 +5847,10 @@ function renderCashBook() {
         tbody.appendChild(row);
     });
 
-    if (balanceDisplay) balanceDisplay.textContent = `${CURRENCY_SYMBOL}${currentBalance.toFixed(2)}`;
+    if (balanceDisplay) {
+        const finalBalance = allTransactions.length > 0 ? allTransactions[allTransactions.length - 1].runningBalance : 0;
+        balanceDisplay.textContent = `${CURRENCY_SYMBOL}${finalBalance.toFixed(2)}`;
+    }
 }
 
 function addCashToBook() {
@@ -6072,50 +5994,12 @@ function generateCashBookReport(reportType) {
         reportTitle = "Custom Cash Book Report";
     }
 
-    let allTransactions = [];
-
-    const purchaserPaymentsMapForPDF = {};
-    purchaseLog.forEach(log => {
-        const purchaser = purchasers.find(p => p.id === log.purchaserId);
-        const pName = purchaser ? purchaser.name : 'Unknown';
-        (log.payments || []).forEach(p => {
-            if (p.amount > 0) {
-                const key = p.txnId || (`old_${pName}_${p.date}`);
-                if (!purchaserPaymentsMapForPDF[key]) {
-                    purchaserPaymentsMapForPDF[key] = {
-                        date: new Date(p.date),
-                        description: `Purchaser Pay: ${pName}`,
-                        type: 'out',
-                        amount: 0
-                    };
-                }
-                purchaserPaymentsMapForPDF[key].amount += p.amount;
-            }
-        });
-    });
-    Object.values(purchaserPaymentsMapForPDF).forEach(txn => allTransactions.push(txn));
-
-    cashBookLog.forEach(log => {
-        if (log.id && (log.id.startsWith('ptxn') || log.id.startsWith('cb_ret_') || log.id.startsWith('cb_sale_') || log.id.startsWith('cb_spay_') || log.id.startsWith('cb_pch_') || log.id.startsWith('cb_exp_') || log.id.startsWith('cb_lab_'))) return;
-        allTransactions.push({ date: new Date(log.date), description: log.description, type: log.type, amount: log.amount });
-    });
-
-    const dailyNet = {};
-    partialPaymentInvoices.forEach(inv => { (inv.payments || []).forEach(p => { if (p.amount > 0) { const d = new Date(p.date).toISOString().split('T')[0]; dailyNet[d] = (dailyNet[d] || 0) + p.amount; } }); });
-    expenses.forEach(exp => { let d = exp.date; if(d.includes('T')) d = d.split('T')[0]; dailyNet[d] = (dailyNet[d] || 0) - exp.amount; });
-    sellReturnsLog.forEach(ret => { if (ret.netAmount > 0) { const d = new Date(ret.date).toISOString().split('T')[0]; dailyNet[d] = (dailyNet[d] || 0) - ret.netAmount; } });
-
-    for (const [dateStr, amount] of Object.entries(dailyNet)) {
-        if (amount !== 0) {
-            allTransactions.push({ date: new Date(dateStr + 'T23:59:00'), description: 'Remaining Balance', type: amount > 0 ? 'in' : 'out', amount: Math.abs(amount) });
-        }
-    }
-
-    allTransactions.sort((a, b) => a.date - b.date);
+    const allTransactions = buildCashBookTransactions();
 
     let openingBalance = 0;
     let tableData = [];
 
+    // Calculate opening balance before the report period
     allTransactions.forEach(txn => {
         if (txn.date < startDate) {
             if (txn.type === 'in') openingBalance += txn.amount;
@@ -8816,93 +8700,9 @@ function renderCashBookHistory() {
     const fromDateVal = document.getElementById('cb-history-from')?.value;
     const toDateVal = document.getElementById('cb-history-to')?.value;
 
-    let allTransactions = [];
+    let allTransactions = buildCashBookTransactions();
 
-    // 1. Manual Cash Book Log Entries (Including IDs)
-    cashBookLog.forEach(log => {
-        allTransactions.push({
-            id: log.id, // Edit/Delete ke liye zaruri hai
-            date: new Date(log.date),
-            description: log.description || '',
-            type: log.type,
-            amount: log.amount,
-            isManual: true // Manual check flag
-        });
-    });
-
-    // 2. Sales payments
-    partialPaymentInvoices.forEach(inv => {
-        (inv.payments || []).forEach(p => {
-            if (p.amount > 0) {
-                allTransactions.push({
-                    id: p.paymentId,
-                    date: new Date(p.date),
-                    description: `Sale Receipt (Inv #${inv.invoiceId}) - Customer: ${inv.customerName}`,
-                    type: 'in',
-                    amount: p.amount,
-                    isManual: false
-                });
-            }
-        });
-    });
-
-    // 3. Expenses
-    expenses.forEach(exp => {
-        allTransactions.push({
-            id: exp.id,
-            date: new Date(exp.date + 'T12:00:00'),
-            description: `Expense: ${exp.category} - ${exp.description || ''}`,
-            type: 'out',
-            amount: exp.amount,
-            isManual: false
-        });
-    });
-
-    // 4. Sell Returns
-    sellReturnsLog.forEach(ret => {
-        if (ret.netAmount > 0) {
-            allTransactions.push({
-                id: ret.id,
-                date: new Date(ret.date),
-                description: `Refund for Sell Return (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`,
-                type: 'out',
-                amount: ret.netAmount,
-                isManual: false
-            });
-        } else if (ret.netAmount < 0) {
-            allTransactions.push({
-                id: ret.id,
-                date: new Date(ret.date),
-                description: `Payment for Exchange (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`,
-                type: 'in',
-                amount: Math.abs(ret.netAmount),
-                isManual: false
-            });
-        }
-    });
-
-    // 5. Purchaser Payments
-    purchaseLog.forEach(log => {
-        const purchaser = purchasers.find(p => p.id === log.purchaserId);
-        const pName = purchaser ? purchaser.name : 'Unknown';
-        (log.payments || []).forEach(p => {
-            if (p.amount > 0) {
-                allTransactions.push({
-                    id: p.txnId,
-                    date: new Date(p.date),
-                    description: `Payment To Purchaser (${pName}) - Bill: ${log.billNo}`,
-                    type: 'out',
-                    amount: p.amount,
-                    isManual: false
-                });
-            }
-        });
-    });
-
-    // Sort Newest First
-    allTransactions.sort((a, b) => b.date - a.date);
-
-    // Filter by Date Range
+    // Apply Date Range Filters
     if (fromDateVal) {
         const fromDateObj = new Date(fromDateVal + 'T00:00:00');
         allTransactions = allTransactions.filter(t => t.date >= fromDateObj);
@@ -8912,25 +8712,27 @@ function renderCashBookHistory() {
         allTransactions = allTransactions.filter(t => t.date <= toDateObj);
     }
 
-    // Filter by Search
+    // Apply Search Filter (e.g. "Junaid" or "Refund")
     if (searchQuery) {
         allTransactions = allTransactions.filter(t => 
             t.description.toLowerCase().includes(searchQuery)
         );
     }
 
-    if (allTransactions.length === 0) {
+    // Newest first for UI rendering
+    const displayTransactions = [...allTransactions].reverse();
+
+    if (displayTransactions.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No matching transactions found.</td></tr>';
         return;
     }
 
-    allTransactions.forEach(t => {
+    displayTransactions.forEach(t => {
         const row = document.createElement('tr');
         const dateStr = t.date ? t.date.toLocaleDateString() : '-';
         const cashIn = t.type === 'in' ? `${CURRENCY_SYMBOL}${t.amount.toFixed(2)}` : '-';
         const cashOut = t.type === 'out' ? `${CURRENCY_SYMBOL}${t.amount.toFixed(2)}` : '-';
 
-        // Safe Actions Column: Sirf Manual Entries par Edit/Delete active hoga
         let actionsHTML = `<small style="color:var(--text-color); font-style: italic;">System Linked</small>`;
         if (t.isManual) {
             actionsHTML = `
@@ -8965,14 +8767,14 @@ function generateCashBookHistoryPDF() {
     const fromDateVal = document.getElementById('cb-history-from')?.value;
     const toDateVal = document.getElementById('cb-history-to')?.value;
 
-    let reportTitle = "Cash Book Flow Statement";
+    let reportTitle = "Cash Book History Statement";
     if (searchQuery) {
         reportTitle += ` - Filter: ${searchQuery}`;
     }
 
     let yPos = 20;
     doc.setFontSize(22); doc.setFont('helvetica', 'bold');
-    doc.text(appSettings.restaurantName || "FJM Social Media", 105, yPos, { align: 'center' }); yPos += 8;
+    doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(14);
     doc.text(reportTitle, 105, yPos, { align: 'center' }); yPos += 8;
     
@@ -8981,51 +8783,9 @@ function generateCashBookHistoryPDF() {
         doc.text(`Period: ${fromDateVal || 'Start'} to ${toDateVal || 'End'}`, 105, yPos, { align: 'center' }); yPos += 8;
     }
 
-    // Re-collect data for PDF
-    let allTransactions = [];
+    let allTransactions = buildCashBookTransactions();
 
-    cashBookLog.forEach(log => {
-        allTransactions.push({ date: new Date(log.date), description: log.description || '', type: log.type, amount: log.amount });
-    });
-
-    partialPaymentInvoices.forEach(inv => {
-        (inv.payments || []).forEach(p => {
-            if (p.amount > 0) {
-                allTransactions.push({
-                    date: new Date(p.date),
-                    description: `Sale Receipt (Inv #${inv.invoiceId}) - Customer: ${inv.customerName}`,
-                    type: 'in',
-                    amount: p.amount
-                });
-            }
-        });
-    });
-
-    expenses.forEach(exp => {
-        allTransactions.push({ date: new Date(exp.date + 'T12:00:00'), description: `Expense: ${exp.category} - ${exp.description || ''}`, type: 'out', amount: exp.amount });
-    });
-
-    sellReturnsLog.forEach(ret => {
-        if (ret.netAmount > 0) {
-            allTransactions.push({ date: new Date(ret.date), description: `Refund for Sell Return (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`, type: 'out', amount: ret.netAmount });
-        } else if (ret.netAmount < 0) {
-            allTransactions.push({ date: new Date(ret.date), description: `Payment for Exchange (Inv: #${ret.originalInvoiceId}) - Client: ${ret.clientName}`, type: 'in', amount: Math.abs(ret.netAmount) });
-        }
-    });
-
-    purchaseLog.forEach(log => {
-        const purchaser = purchasers.find(p => p.id === log.purchaserId);
-        const pName = purchaser ? purchaser.name : 'Unknown';
-        (log.payments || []).forEach(p => {
-            if (p.amount > 0) {
-                allTransactions.push({ date: new Date(p.date), description: `Payment To Purchaser (${pName}) - Bill: ${log.billNo}`, type: 'out', amount: p.amount });
-            }
-        });
-    });
-
-    allTransactions.sort((a, b) => b.date - a.date);
-
-    // Filter
+    // Apply Filters for PDF
     if (fromDateVal) {
         const fromDateObj = new Date(fromDateVal + 'T00:00:00');
         allTransactions = allTransactions.filter(t => t.date >= fromDateObj);
@@ -9047,7 +8807,6 @@ function generateCashBookHistoryPDF() {
         t.type === 'out' ? `${CURRENCY_SYMBOL}${t.amount.toFixed(2)}` : '-'
     ]);
 
-    // We do not add any footer totals, maintaining simple table.
     doc.autoTable({
         startY: yPos + 5,
         head: [['Date', 'Description', 'Cash In', 'Cash Out']],
@@ -9056,7 +8815,7 @@ function generateCashBookHistoryPDF() {
         headStyles: { fillColor: [31, 41, 55] }
     });
 
-    doc.save(`Cash_Book_Statement_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Cash_Book_History_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 // =========================================================
@@ -9190,6 +8949,100 @@ function deleteCashBookTransaction(id) {
     renderCashBookHistory();
     if (typeof renderCashBook === 'function') renderCashBook();
     renderDashboard();
+}
+
+// --- UNIFIED CASH BOOK DATA BUILDER (CHARON ITEMS KE LIYE) ---
+function buildCashBookTransactions() {
+    let allTransactions = [];
+
+    // 1. Manual Cash In & Cash Out (from cashBookLog)
+    cashBookLog.forEach(log => {
+        // POS, Expenses ya system-generated logs ko filter out karna
+        if (log.id && (
+            log.id.startsWith('ptxn') || 
+            log.id.startsWith('cb_ret_') || 
+            log.id.startsWith('cb_sale_') || 
+            log.id.startsWith('cb_spay_') || 
+            log.id.startsWith('cb_pch_') || 
+            log.id.startsWith('cb_exp_') || 
+            log.id.startsWith('cb_lab_')
+        )) return; 
+        
+        const desc = log.description || '';
+        if (desc.startsWith('Labor Advance given to') || desc.startsWith('Salary Paid to') || desc.includes('(Paid To: junaid)')) return;
+
+        allTransactions.push({
+            id: log.id,
+            date: new Date(log.date),
+            description: log.description || (log.type === 'in' ? 'Cash In' : 'Cash Out'),
+            type: log.type,
+            amount: log.amount,
+            isManual: true
+        });
+    });
+
+    // 2. Payments to Purchasers (from purchaseLog)
+    const purchaserPaymentsMap = {};
+    purchaseLog.forEach(log => {
+        const purchaser = purchasers.find(p => p.id === log.purchaserId);
+        const pName = purchaser ? purchaser.name : 'Unknown';
+        (log.payments || []).forEach(p => {
+            if (p.amount > 0) {
+                const key = p.txnId || (`old_${pName}_${p.date}`);
+                if (!purchaserPaymentsMap[key]) {
+                    purchaserPaymentsMap[key] = {
+                        id: p.txnId,
+                        date: new Date(p.date),
+                        description: `Payment To Purchaser (${pName}) - Bill: ${log.billNo}`,
+                        type: 'out',
+                        amount: 0,
+                        isManual: false
+                    };
+                }
+                purchaserPaymentsMap[key].amount += p.amount;
+            }
+        });
+    });
+    Object.values(purchaserPaymentsMap).forEach(txn => allTransactions.push(txn));
+
+    // 3. Refunds & Exchange Payments (from sellReturnsLog)
+    sellReturnsLog.forEach(ret => {
+        if (ret.netAmount > 0) { // Refunded to Customer (Cash Out)
+            allTransactions.push({
+                id: ret.id,
+                date: new Date(ret.date),
+                description: `Refund for Sell Return (Inv #${ret.originalInvoiceId}) - Client: ${ret.clientName}`,
+                type: 'out',
+                amount: ret.netAmount,
+                isManual: false
+            });
+        } else if (ret.netAmount < 0) { // Customer paid us for exchange (Cash In)
+            allTransactions.push({
+                id: ret.id,
+                date: new Date(ret.date),
+                description: `Payment for Exchange (Inv #${ret.originalInvoiceId}) - Client: ${ret.clientName}`,
+                type: 'in',
+                amount: Math.abs(ret.netAmount),
+                isManual: false
+            });
+        }
+    });
+
+    // Sort chronologically (oldest first to compute correct running balance)
+    allTransactions.sort((a, b) => a.date - b.date);
+
+    // Compute exact running balance based on only these items
+    let currentBalance = 0;
+    allTransactions.forEach(txn => {
+        if (txn.type === 'in') {
+            currentBalance += txn.amount;
+        } else {
+            currentBalance -= txn.amount;
+        }
+        txn.runningBalance = currentBalance;
+    });
+
+    return allTransactions;
 }
 
 
