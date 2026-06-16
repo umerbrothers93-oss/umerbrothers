@@ -1077,6 +1077,11 @@
                                 </div>
                             </div>
                 
+                           <label for="return-payment-method">Refund/Payment Method (Bank/Cash):</label>
+<select id="return-payment-method" class="form-control">
+    <!-- Options JavaScript ke zariye load honge -->
+</select>
+                           
                             <div class="form-grid" style="margin-top: 20px;">
                                 <label for="return-reason">Reason for Return/Exchange:</label>
                                 <textarea id="return-reason" class="form-control" rows="3" placeholder="Please provide a clear reason for the transaction (e.g., damaged item, wrong size, exchange, etc.)"></textarea>
@@ -4174,6 +4179,8 @@ function processSellReturn() {
         return;
     }
 
+const paymentMethod = document.getElementById('return-payment-method').value;
+
     const reason = document.getElementById('return-reason').value.trim();
     if (!reason) {
         alert("Please provide a reason for the return/exchange.");
@@ -4238,8 +4245,9 @@ function processSellReturn() {
     creditedItems: creditedItems,
     debitedItems: debitedItems,
     netAmount: netAmount,
+    paymentMethod: paymentMethod, // NAYA: Payment Method yahan save ho raha hai
     reason: reason,
-    date: getCloudDate().toISOString() // Adjusted Cloud Time
+    date: getCloudDate().toISOString() 
 };
     sellReturnsLog.push(returnLogEntry);
 
@@ -4314,6 +4322,9 @@ function processSellReturn() {
 function resetSellReturnForm() {
     selectedInvoiceForReturn = null;
     returnDebitCart =[]; 
+    if (document.getElementById('return-payment-method')) {
+    document.getElementById('return-payment-method').value = 'Cash';
+}
     document.getElementById('return-reason').value = '';
     document.getElementById('return-total-credit').textContent = 'Rs. 0.00';
     document.getElementById('return-debit-items-table').querySelector('tbody').innerHTML = '';
@@ -6351,7 +6362,19 @@ function renderBankAndCash(filterDate = null) {
         }
     });
 
-    // 3. REMOVED OTHER LINKS: Sell Return ya kisi bhi aur transaction ka link yahan se khatam kar diya gaya hai.
+    // 3. LINK WITH SELL RETURNS: Sell returns aur unki refunds ko balance se link karna
+sellReturnsLog.forEach(ret => {
+    let retDate = ret.date;
+    if (retDate.includes('T')) retDate = retDate.split('T')[0];
+    
+    if (retDate === filterDate) {
+        const method = ret.paymentMethod || 'Cash';
+        
+        // Agar netAmount positive (> 0) hai to iska matlab refund di gayi hai (outflow).
+        // Agar netAmount negative (< 0) hai to iska matlab exchange par customer se paise received hue hain (inflow).
+        balances[method] = (balances[method] || 0) - ret.netAmount;
+    }
+});
 
     const cashBalance = balances['Cash'] || 0;
     let bankTotal = 0;
@@ -7519,6 +7542,28 @@ function populatePaymentMethods() {
     // POS payment modal dropdown
     const addPaymentMethod = document.getElementById('add-payment-method');
     if (addPaymentMethod) addPaymentMethod.innerHTML = html;
+
+function populatePaymentMethods() {
+    const html = getPaymentMethodsHTML();
+    
+    const purchasePaymentMethod = document.getElementById('purchase-payment-method');
+    if (purchasePaymentMethod) purchasePaymentMethod.innerHTML = html;
+    
+    const addPaymentMethodPurchaser = document.getElementById('add-payment-method-purchaser');
+    if (addPaymentMethodPurchaser) addPaymentMethodPurchaser.innerHTML = html;
+    
+    const partialPaymentMethod = document.getElementById('partial-payment-method');
+    if (partialPaymentMethod) partialPaymentMethod.innerHTML = html;
+    
+    const addPaymentMethod = document.getElementById('add-payment-method');
+    if (addPaymentMethod) addPaymentMethod.innerHTML = html;
+
+    // NAYA CODE: Sell Return ke payment selector ko populate karein
+    const returnPaymentMethod = document.getElementById('return-payment-method');
+    if (returnPaymentMethod) returnPaymentMethod.innerHTML = html;
+}
+
+
 }
 
 function handlePaymentMethodChange(selectElement, detailsContainer) {
