@@ -2186,7 +2186,7 @@ function savePurchaserPaymentEditFromHistory() {
     const purchaser = purchasers.find(p => p.id === purchaserId);
     cashBookLog.push({
         id: txnId, 
-        date: new Date(paymentDate + 'T12:00:00').toISOString(), 
+        date: new Date(paymentDate + 'T' + getCloudDate().toTimeString().split(' ')[0]).toISOString(), 
         description: `Payment To Purchase (${purchaser ? purchaser.name : 'N/A'})`,
         type: 'out',
         amount: paymentAmount,
@@ -2448,7 +2448,7 @@ function saveCashBookHistoryEdit() {
     cashBookLog[transactionIndex].type = type;
     cashBookLog[transactionIndex].amount = amount;
     cashBookLog[transactionIndex].description = description;
-    cashBookLog[transactionIndex].date = new Date(dateVal + 'T12:00:00').toISOString();
+    cashBookLog[transactionIndex].date = new Date(dateVal + 'T' + getCloudDate().toTimeString().split(' ')[0]).toISOString();
 
     recalculateCashBookBalances();
     saveCashBookLog();
@@ -2843,7 +2843,32 @@ async function dbFetchInvoices() { partialPaymentInvoices = await dbFetchData("p
 async function dbFetchExpenses() { expenses = await dbFetchData(EXPENSES_KEY); }
 async function dbFetchPurchasers() { purchasers = await dbFetchData(PURCHASERS_KEY); }
 async function dbFetchPurchaseLog() { purchaseLog = await dbFetchData(PURCHASE_LOG_KEY); }
-async function dbFetchCashBook() { cashBookLog = await dbFetchData(CASH_BOOK_KEY); }
+async function dbFetchCashBook() { 
+    // Cloud se data mangwayein
+    const cloudData = await dbFetchData(CASH_BOOK_KEY); 
+    
+    // Local memory se data mangwayein
+    const localData = JSON.parse(localStorage.getItem(getUserSpecificKey(CASH_BOOK_KEY))) || [];
+    
+    // Dono ko aapas mein Merge karein taake koi offline entry delete na ho
+    const combinedMap = new Map();
+    
+    // Pehle cloud ka data daalein
+    if(Array.isArray(cloudData)) {
+        cloudData.forEach(item => combinedMap.set(item.id, item));
+    }
+    
+    // Phir local data daalein (agar koi entry cloud par nahi hai to wo yahan se add ho jayegi)
+    if(Array.isArray(localData)) {
+        localData.forEach(item => combinedMap.set(item.id, item));
+    }
+    
+    // Combine kiya hua data cashBookLog mein set kar dein
+    cashBookLog = Array.from(combinedMap.values());
+    
+    // Dono jagah updated data save kar dein
+    localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify(cashBookLog));
+}
 async function dbFetchGatePasses() { gatePassLog = await dbFetchData(GATE_PASS_LOG_KEY); }
 async function dbFetchSellReturns() { sellReturnsLog = await dbFetchData(SELL_RETURNS_KEY); }
 async function dbFetchStockUpdates() { stockUpdatesLog = await dbFetchData(STOCK_UPDATES_KEY); }
@@ -2919,19 +2944,16 @@ const getTodayString = () => getLocalDateString(getCloudDate());
     const todayStr = getTodayString();
 
 const todaysSales = partialPaymentInvoices
-    .filter(inv => inv.createdAt.startsWith(todayStr))
+    .filter(inv => getLocalDateString(inv.createdAt) === todayStr)
     .reduce((sum, inv) => sum + inv.paidAmount, 0);
 
-    const todaysExpenses = expenses
-        .filter(exp => exp.date === todayStr)
-        .reduce((sum, exp) => sum + exp.amount, 0);
+const todaysExpenses = expenses
+    .filter(exp => getLocalDateString(exp.date) === todayStr)
+    .reduce((sum, exp) => sum + exp.amount, 0);
 
-    const todaysPurchases = purchaseLog
-        .filter(log => log.date === todayStr)
-        .reduce((sum, log) => sum + (log.grandTotal || log.totalCost), 0);
-
-    const totalReceivables = partialPaymentInvoices
-        .reduce((sum, inv) => sum + inv.remainingBalance, 0);
+const todaysPurchases = purchaseLog
+    .filter(log => getLocalDateString(log.date) === todayStr)
+    .reduce((sum, log) => sum + (log.grandTotal || log.totalCost), 0);
 
     document.getElementById('dashboard-total-sales').textContent = `${CURRENCY_SYMBOL}${todaysSales.toFixed(2)}`;
     document.getElementById('dashboard-total-expenses').textContent = `${CURRENCY_SYMBOL}${todaysExpenses.toFixed(2)}`;
@@ -5507,7 +5529,7 @@ function recordPurchaserPayment() {
         const purchaser = purchasers.find(p => p.id === purchaserId);
         cashBookLog.push({
             id: txnId, 
-            date: new Date(paymentDate + 'T12:00:00').toISOString(), 
+            date: new Date(paymentDate + 'T' + getCloudDate().toTimeString().split(' ')[0]).toISOString(), 
             description: `Payment to ${purchaser ? purchaser.name : 'N/A'}`,
             type: 'out',
             amount: paymentAmount,
@@ -9220,7 +9242,7 @@ function saveCashBookHistoryEdit() {
     cashBookLog[transactionIndex].type = type;
     cashBookLog[transactionIndex].amount = amount;
     cashBookLog[transactionIndex].description = description;
-    cashBookLog[transactionIndex].date = new Date(dateVal + 'T12:00:00').toISOString();
+    cashBookLog[transactionIndex].date = new Date(dateVal + 'T' + getCloudDate().toTimeString().split(' ')[0]).toISOString();
 
     recalculateCashBookBalances();
     saveCashBookLog();
