@@ -443,8 +443,15 @@
             <div id="login-form">
                 <h1>Welcome to ERP</h1>
                 <div class="form-group"><label for="username">Username:</label><input type="text" id="username" class="form-control"></div>
-                <div class="form-group"><label for="password">Password:</label><input type="password" id="password" class="form-control"></div>
-                <div class="form-group"><label for="change-password-input">New Password (optional):</label><input type="password" id="change-password-input" class="form-control" placeholder="Enter new password to change"></div>
+<div class="form-group">
+    <label for="password">Password:</label>
+    <div style="position: relative;">
+        <input type="password" id="password" class="form-control" style="padding-right: 40px;">
+        <span id="togglePassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-color); font-size: 1.2rem;">
+            👁️
+        </span>
+    </div>
+</div>                <div class="form-group"><label for="change-password-input">New Password (optional):</label><input type="password" id="change-password-input" class="form-control" placeholder="Enter new password to change"></div>
                 <button class="btn btn-primary" id="login-button" style="width: 100%;">Login / Change Password</button>
                 <p class="auth-toggle-link" onclick="toggleAuthForms()">Don't have an account? Register</p>
             </div>
@@ -454,8 +461,15 @@
                 <div class="form-group"><label for="reg-email">Email:</label><input type="email" id="reg-email" class="form-control"></div>
                 <div class="form-group"><label for="reg-phone">Phone:</label><input type="tel" id="reg-phone" class="form-control"></div>
                 <div class="form-group"><label for="reg-username">Username:</label><input type="text" id="reg-username" class="form-control"></div>
-                <div class="form-group"><label for="reg-password">Password:</label><input type="password" id="reg-password" class="form-control"></div>
-                <button class="btn btn-primary" id="register-button" style="width: 100%;">Register</button>
+<div class="form-group">
+    <label for="reg-password">Password:</label>
+    <div style="position: relative;">
+        <input type="password" id="reg-password" class="form-control" style="padding-right: 40px;">
+        <span id="toggleRegPassword" onclick="toggleRegPass()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-color); font-size: 1.2rem;">
+            👁️
+        </span>
+    </div>
+</div>                <button class="btn btn-primary" id="register-button" style="width: 100%;">Register</button>
                 <p class="auth-toggle-link" onclick="toggleAuthForms()">Already have an account? Login</p>
             </div>
         </div>
@@ -2954,7 +2968,7 @@ const todaysExpenses = expenses
 const todaysPurchases = purchaseLog
     .filter(log => getLocalDateString(log.date) === todayStr)
     .reduce((sum, log) => sum + (log.grandTotal || log.totalCost), 0);
-
+const totalReceivables = partialPaymentInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0);
     document.getElementById('dashboard-total-sales').textContent = `${CURRENCY_SYMBOL}${todaysSales.toFixed(2)}`;
     document.getElementById('dashboard-total-expenses').textContent = `${CURRENCY_SYMBOL}${todaysExpenses.toFixed(2)}`;
     document.getElementById('dashboard-total-purchases').textContent = `${CURRENCY_SYMBOL}${todaysPurchases.toFixed(2)}`;
@@ -9283,6 +9297,35 @@ function deleteCashBookTransaction(id) {
     renderDashboard();
 }
 
+// Password toggle functionality
+document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'togglePassword') {
+        const passwordField = document.getElementById('password');
+        const toggleIcon = document.getElementById('togglePassword');
+        
+        // Check current type
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        
+        // Switch type
+        passwordField.setAttribute('type', type);
+        
+        // Change icon (Open/Closed Eye)
+        if (type === 'text') {
+            toggleIcon.textContent = '👁️‍🗨️'; // Khuli aankh (Visible)
+        } else {
+            toggleIcon.textContent = '👁️'; // Band aankh (Hidden)
+        }
+    }
+});
+
+
+function toggleRegPass() {
+    const pField = document.getElementById('reg-password');
+    const pIcon = document.getElementById('toggleRegPassword');
+    const type = pField.getAttribute('type') === 'password' ? 'text' : 'password';
+    pField.setAttribute('type', type);
+    pIcon.textContent = type === 'text' ? '👁️‍🗨️' : '👁️';
+}
 
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"e3c1c9af36de41759418005494a48906","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
