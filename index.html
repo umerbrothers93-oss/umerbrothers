@@ -17,8 +17,207 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <style>
+
+/* ========================================================= */
+/* PREMIUM LOGIN BACKGROUND & GLASSMORPHISM EFFECT           */
+/* ========================================================= */
+
+#auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    /* Dark gradient filter aur business image background */
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.82) 0%, rgba(17, 24, 39, 0.88) 100%), 
+                url('https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1920&q=80') no-repeat center center;
+    background-size: cover;
+}
+
+.auth-box {
+    background-color: rgba(31, 41, 55, 0.75) !important; /* Semi-transparent background */
+    backdrop-filter: blur(12px); /* modern frosted-glass blur effect */
+    -webkit-backdrop-filter: blur(12px); /* Safari support */
+    padding: 40px;
+    border-radius: var(--border-radius-large);
+    border: 1px solid rgba(255, 255, 255, 0.08); /* Card ke sides par halka sa glow border */
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+}
+        
+
+
+/* ========================================================= */
+/* FLOATING CARD SYSTEM (FOR WORKSPACE CONTAINERS)           */
+/* ========================================================= */
+
+.manage-form, 
+.table-container, 
+.dashboard-card {
+    background-color: #1e293b !important; /* Slate 800: Rich dark graphite background */
+    border: 1px solid rgba(255, 255, 255, 0.06) !important; /* Bohot halki safaid border taake card wazeh ho */
+    border-radius: 12px !important; /* 12px modern rounded corners */
+    padding: 24px !important; /* Section ke andar comfortable spacing (padding) */
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 
+                0 8px 10px -6px rgba(0, 0, 0, 0.3) !important; /* Soft depth shadow for floating look */
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Dashboard cards par hover karne se thoda floating lift aur border highlight aayega */
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.35) !important;
+    border-color: rgba(20, 184, 166, 0.2) !important; /* Accent Teal color ki halki boundary highlight */
+}
+
+/* Dashboard sections ke title ko behtar spacing dena */
+.dashboard-section .section-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 16px;
+    letter-spacing: 0.02em;
+}
+
+
+/* Active toggle button par white text ko force karne ke liye */
+.payment-mode-toggle .btn-primary,
+#mode-cash-btn.btn-primary,
+#mode-credit-btn.btn-primary {
+    color: #ffffff !important; /* Hamesha white text rahega */
+    font-weight: 700 !important; /* Text thoda bold hoga taake read karne mein asani ho */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* Halka sa shadow taake text mazeed clear ho jaye */
+}
+
         /* --- General Styles & Modern Dark Theme --- */
 
+        /* ========================================================= */
+        /* ADDITIONAL POS & DASHBOARD STYLES (FOR PROFESSIONAL LOOK) */
+        /* ========================================================= */
+
+        /* 1. Form Inputs ko Dark theme ke mutabiq tabdeel karna */
+        .form-control, 
+        #product-search-bar input, 
+        #partial-product-search-input, 
+        #partial-search-input {
+            background-color: #0f172a !important; /* Dark slate background */
+            border: 1px solid #334155 !important; /* Soft border */
+            color: #f8fafc !important; /* Off-white text */
+            padding: 10px 14px !important;
+            border-radius: 8px !important;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control::placeholder {
+            color: #64748b !important; /* Muted placeholder color */
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-color) !important;
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15) !important;
+            outline: none;
+        }
+
+        /* 2. Form container ko ek behtareen rounded Card banana */
+        .manage-form {
+            background-color: #1e293b !important; /* Slate 800 background */
+            border: 1px solid rgba(255, 255, 255, 0.05); /* Halka sa border */
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            margin-bottom: 24px;
+        }
+
+        /* 3. Debit / Credit toggle buttons ko segmented look dena */
+        .payment-mode-toggle {
+            display: flex;
+            gap: 8px;
+            background-color: #0f172a;
+            padding: 6px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            margin-bottom: 20px;
+        }
+
+        .payment-mode-toggle button {
+            flex-grow: 1;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .payment-mode-toggle .btn-secondary {
+            background-color: transparent !important;
+            color: #94a3b8 !important;
+            border: none !important;
+        }
+
+        .payment-mode-toggle .btn-primary {
+            background-color: var(--accent-color) !important;
+            color: #ffffff !important; /* Text white ho gya taake read ho sake */
+            box-shadow: 0 2px 8px rgba(20, 184, 166, 0.25);
+        }
+
+        /* 4. Table ko modern ERP style mein tabdeel karna */
+        .cart-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            border-radius: 8px;
+            overflow: hidden; /* Round borders ko apply karne ke liye */
+            border: none !important;
+        }
+
+        .cart-table th {
+            background-color: #0f172a !important; /* Table Header ko thoda aur dark kiya */
+            color: #f8fafc !important;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 12px 16px;
+            border-bottom: 2px solid #334155 !important;
+            border-right: none !important;
+            border-left: none !important;
+        }
+
+        .cart-table td {
+            background-color: #1e293b;
+            color: #cbd5e1;
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155 !important;
+            border-right: none !important;
+            border-left: none !important;
+            font-size: 0.9rem;
+        }
+
+        .cart-table tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02); /* Hover karne par row halki si highlight ho */
+        }
+
+        /* 5. Create Invoice aur Clear buttons ko behtar karna */
+        .manage-buttons .btn, .btn-success, .btn-secondary {
+            border-radius: 8px !important;
+            padding: 10px 20px !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .btn-success {
+            background-color: #10b981 !important; /* Proper Emerald Green */
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-success:hover {
+            background-color: #059669 !important;
+            transform: translateY(-1px);
+        }
         
 :root {
     --bg-color: #111827;          /* Naya Graphite Background */
@@ -49,14 +248,13 @@
         }
 
         /* --- Custom Scrollbar Styling --- */
-        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar { width: 15px; }
         ::-webkit-scrollbar-track { background: var(--surface-color); }
         ::-webkit-scrollbar-thumb { background-color: var(--accent-color); border-radius: 6px; border: 2px solid var(--surface-color); }
         ::-webkit-scrollbar-thumb:hover { background-color: #4c82d4; }
         * { scrollbar-width: thin; scrollbar-color: var(--accent-color) var(--surface-color); }
 
         /* --- Login & Registration Screen --- */
-        #auth-container { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: var(--bg-color); }
         .auth-box { background-color: var(--surface-color); padding: 40px; border-radius: var(--border-radius-large); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); text-align: center; width: 90%; max-width: 400px; }
         .auth-box h1 { color: var(--text-light); margin-bottom: 25px; font-weight: 700; }
         .auth-box .form-group { margin-bottom: 20px; text-align: left; }
@@ -96,86 +294,123 @@
             overflow: hidden;
         }
 
-        /* Left Panel: Vertical Navigation Tabs */
+       /* --- PROFESSIONAL LEFT PANEL (NAVIGATION) STYLES --- */
         .left-panel {
-            background-color: #0a0f1d;
-            border-right: 1px solid var(--border-color);
-            padding: 20px 0;
+            background-color: #0f172a; /* Modern Slate Dark Background */
+            border-right: 1px solid #1e293b; 
+            padding: 20px 0; /* Top aur bottom padding */
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            width: 260px; /* Sidebar ki thodi chaurai (width) badhai hai */
         }
 
         .tabs {
             display: flex;
-            flex-direction: column; /* Make tabs vertical */
+            flex-direction: column;
             margin-bottom: 0;
             border-bottom: none;
+            gap: 6px; /* Har menu item ke darmiyan thoda gap */
+            padding: 0 15px; /* Menu items ko kinaron se thoda andar karne ke liye */
         }
+
         .tab-link {
-            padding: 12px 20px;
+            padding: 12px 16px;
             cursor: pointer;
             border: none;
             background-color: transparent;
-            color: var(--text-color);
-            font-size: 0.9rem;
-            border-left: 3px solid transparent; /* Highlight on the left edge */
-            transition: color 0.2s, background-color 0.2s, border-left 0.2s;
+            color: #94a3b8; /* Professional Light Grey Text */
+            font-size: 0.95rem;
+            font-weight: 500;
+            border-radius: 8px; /* Soft Rounded Corners */
+            transition: all 0.3s ease; /* Smooth hover effect */
             text-align: left;
-            font-weight: 600;
-        }
-        .tab-link:hover { color: var(--text-light); background-color: #242c36; }
-        .tab-link.active { border-left-color: var(--accent-color); background-color: #242c36; color: var(--text-light); }
-        
-        /* --- Dropdown Navigation --- */
-        .nav-item-dropdown .dropdown-toggle {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             width: 100%;
         }
-        .nav-item-dropdown .arrow {
-            transition: transform 0.2s ease-in-out;
+
+        /* Hover Effect: Jab mouse upar jaye to kya ho */
+        .tab-link:hover { 
+            color: #f8fafc; /* Text bright white ho jaye */
+            background-color: rgba(255, 255, 255, 0.05); /* Halka sa white background */
+            transform: translateX(5px); /* Text thoda sa aage (right) move ho */
         }
+
+        /* Active State: Jo page khula hua hai */
+        .tab-link.active { 
+            background-color: #0d9488; /* Professional Deep Teal Color */
+            color: #ffffff !important; /* White Text for better contrast */
+            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3); /* Halka sa glowing shadow */
+            font-weight: 600;
+        }
+        
+        /* --- Dropdown Navigation Styling --- */
+        .nav-item-dropdown .dropdown-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between; /* Arrow ko right side pe push karne ke liye */
+            width: 100%;
+        }
+        
+        .nav-item-dropdown .arrow {
+            transition: transform 0.3s ease-in-out;
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+        
         .nav-item-dropdown.open .arrow {
             transform: rotate(180deg);
         }
+
+        /* Sub-tabs (Dropdown ke andar wale menus) */
         .sub-tabs {
             display: none;
             flex-direction: column;
-            padding-left: 20px;
-            background-color: #1a2029;
+            padding-left: 15px;
+            margin-left: 20px; /* Thoda andar ki taraf */
+            margin-top: 5px;
+            margin-bottom: 5px;
+            border-left: 2px solid #334155; /* Ek line jo folder tree ka look degi */
+            gap: 4px;
         }
+        
         .nav-item-dropdown.open .sub-tabs {
             display: flex;
         }
+        
         .sub-tabs .tab-link.sub-tab {
-            border-left-style: solid;
-            border-left-width: 3px;
-            border-left-color: #4a5568;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            background-color: transparent;
         }
+        
         .sub-tabs .tab-link.sub-tab:hover {
-            border-left-color: var(--info-color);
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
         }
+        
         .sub-tabs .tab-link.sub-tab.active {
-            border-left-color: var(--accent-color);
-            background-color: #242c36;
-            color: var(--text-light);
+            background-color: rgba(13, 148, 136, 0.15); /* Halka Teal Background */
+            color: #14b8a6 !important; /* Teal Text */
+            box-shadow: none;
+            border-left: 3px solid #14b8a6;
+            border-radius: 0 6px 6px 0;
+            transform: none; /* Sub tab active hone pe right move na ho */
         }
-        .nav-item-dropdown.parent-active .dropdown-toggle {
-            border-left-color: var(--accent-color);
-            background-color: #242c36;
-            color: var(--text-light);
+        /* --- END PROFESSIONAL LEFT PANEL STYLES --- */
+        
+        .sub-tabs .tab-link.sub-tab.active {
+            background-color: rgba(13, 148, 136, 0.15); /* Halka Teal Background */
+            color: #14b8a6 !important; /* Teal Text */
+            box-shadow: none;
+            border-left: 3px solid #14b8a6;
+            border-radius: 0 6px 6px 0;
+            transform: none; /* Sub tab active hone pe right move na ho */
         }
-
-        /* Center Panel: Product Search & Grid */
-        .center-panel {
-            background-color: var(--bg-color);
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
+        /* --- END PROFESSIONAL LEFT PANEL STYLES --- */
         .panel-title { font-size: 1.6rem; font-weight: 700; color: var(--text-light); margin-bottom: 20px; }
 
         /* Product Grid & Search */
@@ -376,22 +611,25 @@
         }
 
         /* --- Responsive Media Queries for Mobile --- */
-        @media (max-width: 768px) {
-            body { overflow: auto; }
-            .panel-title { font-size: 1.4rem; }
-            .controls-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; }
-            .manage-layout { flex-direction: column; }
-            #product-grid, #partial-product-list, #return-replacement-product-list, #returned-products-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-            .form-grid { grid-template-columns: 1fr; }
-            .form-grid label { text-align: left; }
-            #PartialPayments .invoice-summary-grid { grid-template-columns: 1fr; }
-            #partial-product-selection, #return-product-selection { grid-template-columns: 1fr; }
-            #Purchase .horizontal-forms-container { grid-template-columns: 1fr; }
-            #Purchase .purchase-input-grid { grid-template-columns: 1fr; }
-            #Purchase .manage-form .form-grid { grid-template-columns: 1fr; }
-            .purchase-nav-tabs { flex-direction: column; align-items: stretch; }
-            .dashboard-grid { grid-template-columns: 1fr; } 
-            .horizontal-forms-container { grid-template-columns: 1fr !important; }
+       @media (max-width: 768px) {
+            #main-content { display: flex !important; flex-direction: row !important; overflow: hidden !important; }
+            .left-panel {
+                position: absolute !important;
+                top: 0;
+                left: -260px;
+                height: 100%;
+                width: 250px !important;
+                z-index: 1000;
+                box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+                /* Yahan Naya Gradient Lagayen */
+                background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            }
+            #main-content.mobile-open .left-panel { left: 0; }
+                        
+            /* Tab Links ko mobile pe transparent aur rounded rakhne ke liye */
+            .tabs { flex-direction: column !important; border-bottom: none !important; }
+            .tab-link { border-bottom: none !important; border-left: none !important; }
+            .tab-link.active { transform: none; } /* Mobile pe zyada shift na ho */
         }
 
         /* --- Toggle Button Styling & Sidebar Animation --- */
@@ -434,6 +672,249 @@
             .tab-link { border-bottom: none !important; border-left: 3px solid transparent !important; }
             .tab-link.active { border-left-color: var(--accent-color) !important; background-color: #242c36 !important; }
         }
+
+/* ========================================================= */
+/* PREMIUM WORKSPACE BACKGROUND & FJM WATERMARK SYSTEM       */
+/* ========================================================= */
+
+.center-panel {
+    background-color: #0b0f19 !important;
+    /* Soft dark overlay ke sath subtle office style image background */
+    background-image: 
+        linear-gradient(rgba(11, 15, 25, 0.94), rgba(11, 15, 25, 0.96)), 
+        url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-attachment: fixed !important; /* Screen scroll karne par background apni jagah ruka rahega */
+    position: relative !important;
+    z-index: 1;
+}
+
+/* Highly Subtle Brand Watermark behind cards */
+.center-panel::before {
+    content: "FJM SOCIAL MEDIA"; /* Aap is text ko apni marzi se tabdeel kar sakte hain */
+    position: fixed;
+    bottom: 80px;
+    right: 80px;
+    font-size: 7.5rem; /* Watermark ka size */
+    font-weight: 900;
+    /* Opacity ko sirf 1.5% rakha hai taake ye bilkul halka sa watermark dikhe */
+    color: rgba(255, 255, 255, 0.015) !important; 
+    pointer-events: none; /* Mouse click watermark ke aar-paar chalega */
+    z-index: -1; /* Isko background elements ke pichhe rakhega */
+    letter-spacing: 0.1em;
+    font-family: var(--font-family);
+    text-transform: uppercase;
+    transform: rotate(-15deg); /* Halka sa terha (angle) look */
+    transform-origin: bottom right;
+}
+/* ========================================================= */
+/* BULLETPROOF CUSTOM SCROLLBAR & OVERFLOW STYLES           */
+/* ========================================================= */
+
+/* 1. Ensure scrollable panels allow scrollbars strictly */
+body, 
+.center-panel, 
+.left-panel, 
+.table-container, 
+.manage-list ul {
+    overflow-y: auto !important; /* Vertical scrollbar ko strictly allow karta hai */
+    scrollbar-gutter: stable; /* Content ko hilne se bachane ke liye */
+}
+
+/* 2. Global Webkit Scrollbar setup (Chrome, Edge, Safari) */
+::-webkit-scrollbar,
+*::-webkit-scrollbar {
+    width: 10px !important; /* Scrollbar ki chaurai */
+    height: 10px !important; /* Horizontal scrollbar ke liye */
+    display: block !important; /* Agar kahin hidden ho to show kare */
+}
+
+/* 3. Scrollbar Track (Background line) */
+::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+    background-color: #0f172a !important; /* Dark Slate Background */
+    border-radius: 0px !important;
+}
+
+/* 4. Scrollbar Thumb (Teal sliding handle) */
+::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+    background-color: var(--accent-color, #14b8a6) !important; /* Teal Color */
+    border-radius: 8px !important; /* Rounded Capsule Shape */
+    border: 2px solid #0f172a !important; /* Thumb aur track ke darmiyan spacing */
+    min-height: 40px !important; /* Bar ko bohot chota hone se rokta hai */
+}
+
+/* Hover state */
+::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+    background-color: #0d9488 !important; /* Hover par thoda dark teal */
+}
+
+/* 5. Scrollbar Up/Down Triangle Buttons (Arrow keys) */
+::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button {
+    display: block !important;
+    height: 12px !important;
+    width: 12px !important;
+    background-color: #0f172a !important; /* Track background color */
+    background-repeat: no-repeat !important;
+    background-size: 8px !important;
+    background-position: center !important;
+}
+
+/* Up Arrow SVG Icon */
+::-webkit-scrollbar-button:single-button:vertical:decrement,
+*::-webkit-scrollbar-button:single-button:vertical:decrement {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%2314b8a6'><polygon points='50,15 15,85 85,85'/></svg>") !important;
+}
+
+/* Down Arrow SVG Icon */
+::-webkit-scrollbar-button:single-button:vertical:increment,
+*::-webkit-scrollbar-button:single-button:vertical:increment {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%2314b8a6'><polygon points='50,85 15,15 85,15'/></svg>") !important;
+}
+
+/* Firefox backup browser rules */
+* {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--accent-color, #14b8a6) #0f172a !important;
+}
+
+
+/* ========================================================= */
+/* AUTOMATIC MOBILE HORIZONTAL SCROLL LOCK (BULLETPROOF)     */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    /* 1. Pure page ki main screen ko lock karna taake side scroll na ho */
+    html, 
+    body, 
+    #main-app, 
+    #main-content, 
+    .center-panel {
+        overflow-x: hidden !important; /* Left-Right scroll ko band karta hai */
+        max-width: 100vw !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 2. Tables aur horizontal container ko unke dhabbe (cards) ke andar scroll dena */
+    .table-container, 
+    #partial-invoice-items-container, 
+    #return-debit-items-container,
+    div[style*="overflow-y: auto"] {
+        max-width: 100% !important;
+        width: 100% !important;
+        overflow-x: auto !important; /* Table card ke andar hi scroll hogi, screen nahi hilegi */
+        box-sizing: border-box !important;
+    }
+
+    /* Table columns ko aapas me barabar rakhne ke liye chaurai restrict karna */
+    .cart-table {
+        min-width: 480px !important; /* Table data kharab nahi hoga aur scroll bar ke sath dikhega */
+    }
+
+    /* 3. Forms aur Select Grid layout ko column (vertical) banana */
+    #partial-product-selection, 
+    #return-product-selection, 
+    .horizontal-forms-container, 
+    .form-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 15px !important;
+    }
+
+    /* 4. Floating Cards ko mobile width ke mutabiq adjust karna */
+    .manage-form, 
+    .table-container, 
+    .dashboard-card,
+    .product-selector-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding: 15px !important; /* Padding thodi kam ki hai mobile ke liye */
+    }
+
+    /* 5. Product Grid ko 2 columns me automatic lock karna */
+    #product-grid, 
+    #partial-product-list, 
+    #return-replacement-product-list, 
+    #returned-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+        width: 100% !important;
+        gap: 10px !important;
+    }
+
+    .product-card {
+        padding: 10px !important;
+    }
+
+    .product-card img {
+        max-width: 90px !important;
+        height: 90px !important;
+    }
+}
+
+/* ========================================================= */
+/* PREMIUM & CLEAN TABLE DESIGN FOR DARK THEME               */
+/* ========================================================= */
+
+.cart-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 15px !important;
+    border-radius: 10px !important; /* Table ke corners ko round kiya */
+    overflow: hidden !important; /* Round corners ko strictly maintain karne ke liye */
+    border: none !important; /* Table ke baqi tamam solid borders khatam */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Table Header (th) Styling */
+.cart-table th {
+    background-color: #0f172a !important; /* Deep dark slate header background */
+    color: #f1f5f9 !important; /* Soft white colors */
+    font-size: 0.8rem !important; /* Text ko slightly chota kiya taake premium look aaye */
+    text-transform: uppercase !important; /* All Caps (PRODUCT, QTY, PRICE...) */
+    letter-spacing: 0.06em !important; /* Letters ke darmiyan halka gap */
+    font-weight: 700 !important;
+    padding: 14px 18px !important; /* Safe and clean breathing spacing */
+    border-bottom: 2px solid #334155 !important; /* Header ke neeche thodi moti divider line */
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important; /* Vertical boundary grid lines khatam */
+}
+
+/* Table Rows & Cells (td) Styling */
+.cart-table td {
+    background-color: #1e293b !important; /* Floating card background se matches (Slate 800) */
+    color: #cbd5e1 !important; /* Readable gray text */
+    padding: 12px 18px !important;
+    border-bottom: 1px solid #334155 !important; /* Bohot soft horizontal divider line */
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important; /* Side grids ko completely hataya */
+    font-size: 0.9rem !important;
+    vertical-align: middle !important;
+}
+
+/* Row Hover Highlights */
+.cart-table tbody tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02) !important; /* Hover karne par row par halka sa modern glow */
+    color: #f8fafc !important; /* Active text white ho jayega */
+}
+
+/* Table ke andar mojud Action buttons ki spacing and styling */
+.cart-table td .btn {
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+}
+
     </style>
 </head>
 <body>
@@ -443,15 +924,8 @@
             <div id="login-form">
                 <h1>Welcome to ERP</h1>
                 <div class="form-group"><label for="username">Username:</label><input type="text" id="username" class="form-control"></div>
-<div class="form-group">
-    <label for="password">Password:</label>
-    <div style="position: relative;">
-        <input type="password" id="password" class="form-control" style="padding-right: 40px;">
-        <span id="togglePassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-color); font-size: 1.2rem;">
-            👁️
-        </span>
-    </div>
-</div>                <div class="form-group"><label for="change-password-input">New Password (optional):</label><input type="password" id="change-password-input" class="form-control" placeholder="Enter new password to change"></div>
+                <div class="form-group"><label for="password">Password:</label><input type="password" id="password" class="form-control"></div>
+                <div class="form-group"><label for="change-password-input">New Password (optional):</label><input type="password" id="change-password-input" class="form-control" placeholder="Enter new password to change"></div>
                 <button class="btn btn-primary" id="login-button" style="width: 100%;">Login / Change Password</button>
                 <p class="auth-toggle-link" onclick="toggleAuthForms()">Don't have an account? Register</p>
             </div>
@@ -461,15 +935,8 @@
                 <div class="form-group"><label for="reg-email">Email:</label><input type="email" id="reg-email" class="form-control"></div>
                 <div class="form-group"><label for="reg-phone">Phone:</label><input type="tel" id="reg-phone" class="form-control"></div>
                 <div class="form-group"><label for="reg-username">Username:</label><input type="text" id="reg-username" class="form-control"></div>
-<div class="form-group">
-    <label for="reg-password">Password:</label>
-    <div style="position: relative;">
-        <input type="password" id="reg-password" class="form-control" style="padding-right: 40px;">
-        <span id="toggleRegPassword" onclick="toggleRegPass()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-color); font-size: 1.2rem;">
-            👁️
-        </span>
-    </div>
-</div>                <button class="btn btn-primary" id="register-button" style="width: 100%;">Register</button>
+                <div class="form-group"><label for="reg-password">Password:</label><input type="password" id="reg-password" class="form-control"></div>
+                <button class="btn btn-primary" id="register-button" style="width: 100%;">Register</button>
                 <p class="auth-toggle-link" onclick="toggleAuthForms()">Already have an account? Login</p>
             </div>
         </div>
@@ -2968,11 +3435,14 @@ const todaysExpenses = expenses
 const todaysPurchases = purchaseLog
     .filter(log => getLocalDateString(log.date) === todayStr)
     .reduce((sum, log) => sum + (log.grandTotal || log.totalCost), 0);
+
+// NAYI LINE YAHAN ADD KAREIN
 const totalReceivables = partialPaymentInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0);
-    document.getElementById('dashboard-total-sales').textContent = `${CURRENCY_SYMBOL}${todaysSales.toFixed(2)}`;
-    document.getElementById('dashboard-total-expenses').textContent = `${CURRENCY_SYMBOL}${todaysExpenses.toFixed(2)}`;
-    document.getElementById('dashboard-total-purchases').textContent = `${CURRENCY_SYMBOL}${todaysPurchases.toFixed(2)}`;
-    document.getElementById('dashboard-total-receivables').textContent = `${CURRENCY_SYMBOL}${totalReceivables.toFixed(2)}`;
+
+document.getElementById('dashboard-total-sales').textContent = `${CURRENCY_SYMBOL}${todaysSales.toFixed(2)}`;
+document.getElementById('dashboard-total-expenses').textContent = `${CURRENCY_SYMBOL}${todaysExpenses.toFixed(2)}`;
+document.getElementById('dashboard-total-purchases').textContent = `${CURRENCY_SYMBOL}${todaysPurchases.toFixed(2)}`;
+document.getElementById('dashboard-total-receivables').textContent = `${CURRENCY_SYMBOL}${totalReceivables.toFixed(2)}`;
 
     // 2. Important Alerts
     // Low Stock
@@ -6084,10 +6554,9 @@ function calculateCurrentCashBalance() {
 }
 
 function addTransactionToCashBook(description, type, amount, date, transactionId = null) {
-    // ID ko zyada unique banayein taake overwrite na ho
-    const id = transactionId || 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-    
-    // Baqi code wese hi rehne dein...
+    const id = transactionId || 'cb' + Date.now();
+    if (cashBookLog.some(log => log.id === id)) return;
+
     cashBookLog.push({
         id: id,
         date: new Date(date).toISOString(),
@@ -6096,6 +6565,7 @@ function addTransactionToCashBook(description, type, amount, date, transactionId
         amount: amount,
         runningBalance: 0
     });
+
     recalculateCashBookBalances();
     saveCashBookLog();
 }
@@ -9297,35 +9767,8 @@ function deleteCashBookTransaction(id) {
     renderDashboard();
 }
 
-// Password toggle functionality
-document.addEventListener('click', function (e) {
-    if (e.target && e.target.id === 'togglePassword') {
-        const passwordField = document.getElementById('password');
-        const toggleIcon = document.getElementById('togglePassword');
-        
-        // Check current type
-        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
-        
-        // Switch type
-        passwordField.setAttribute('type', type);
-        
-        // Change icon (Open/Closed Eye)
-        if (type === 'text') {
-            toggleIcon.textContent = '👁️‍🗨️'; // Khuli aankh (Visible)
-        } else {
-            toggleIcon.textContent = '👁️'; // Band aankh (Hidden)
-        }
-    }
-});
 
 
-function toggleRegPass() {
-    const pField = document.getElementById('reg-password');
-    const pIcon = document.getElementById('toggleRegPassword');
-    const type = pField.getAttribute('type') === 'password' ? 'text' : 'password';
-    pField.setAttribute('type', type);
-    pIcon.textContent = type === 'text' ? '👁️‍🗨️' : '👁️';
-}
 
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"e3c1c9af36de41759418005494a48906","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
