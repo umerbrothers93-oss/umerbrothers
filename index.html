@@ -915,6 +915,26 @@ body,
     border-radius: 6px !important;
 }
 
+/* ========================================================= */
+/* DASHBOARD CARD PRICE OVERFLOW FIX                         */
+/* ========================================================= */
+.dashboard-card {
+    padding: 16px !important; /* Spacing ko thoda kam kiya taake prices ke liye zyada jagah bache */
+    box-sizing: border-box !important;
+    overflow: hidden !important; /* Kisi bhi soorat me text ko card se bahar nikalne se rokta hai */
+}
+
+.dashboard-card .card-value {
+    font-size: 1.6rem !important; /* Font size ko 2.2rem se kam kar ke 1.6rem kiya taake prices fit ho sakein */
+    font-weight: 700;
+    white-space: nowrap !important; /* Text ko zabardasti ek hi line me rakhta hai */
+    overflow: hidden !important; /* Box se bahar nikalne wale hissay ko chupa deta hai */
+    text-overflow: ellipsis !important; /* Agar screen bohot hi choti ho jaye to end me (...) show karega */
+    display: block !important;
+    width: 100% !important;
+}
+
+
     </style>
 </head>
 <body>
@@ -1623,7 +1643,7 @@ body,
                     <h2 class="panel-title">📈 All Reports & Financial Summary</h2>
 
                     <!-- Summary Cards -->
-                    <div class="dashboard-grid" style="margin-bottom: 20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="dashboard-grid" style="margin-bottom: 20px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                         <div class="dashboard-card">
                             <p class="card-title">Total Payment</p>
                             <h2 id="ar-total-sales" class="card-value sales">Rs. 0.00</h2>
