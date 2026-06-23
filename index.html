@@ -2696,7 +2696,7 @@ function deletePurchaserPaymentFromHistory(txnId) {
 function compileCashBookTransactions() {
     let allTransactions = [];
 
-    // 1. Compile Purchaser Payments
+    // 1. Compile Purchaser Payments from Purchase Log (Applied Payments)
     const purchaserPaymentsMap = {};
     purchaseLog.forEach(log => {
         const purchaser = purchasers.find(p => p.id === log.purchaserId);
@@ -2708,11 +2708,11 @@ function compileCashBookTransactions() {
                     purchaserPaymentsMap[key] = {
                         id: p.txnId || key,
                         date: new Date(p.date),
-                        description: `Payment To Purchase (${pName})`, // Matches Cash Book name
+                        description: `Payment To Purchase (${pName})`, 
                         type: 'out',
                         amount: 0,
                         isManual: false,
-                        isPurchaserPayment: true, // Marked to enable actions
+                        isPurchaserPayment: true, 
                         txnId: p.txnId,
                         purchaserId: log.purchaserId
                     };
@@ -2723,9 +2723,13 @@ function compileCashBookTransactions() {
     });
     Object.values(purchaserPaymentsMap).forEach(txn => allTransactions.push(txn));
 
-    // 2. Compile Manual Entries
+    // 2. Compile Manual Entries & Unapplied Payments
     cashBookLog.forEach(log => {
-        if (log.id && (log.id.startsWith('ptxn') || log.id.startsWith('cb_ret_') || log.id.startsWith('cb_sale_') || log.id.startsWith('cb_spay_') || log.id.startsWith('cb_pch_') || log.id.startsWith('cb_exp_') || log.id.startsWith('cb_lab_'))) return; 
+        // Agar yeh transaction pehle hi step 1 mein process ho chuki hai to skip karein
+        if (log.id && allTransactions.some(t => t.id === log.id)) return;
+
+        // System generated tags ko skip karein, lekin 'ptxn' (advance payments) ko skip na karein agar wo step 1 me process nahi huin
+        if (log.id && (log.id.startsWith('cb_ret_') || log.id.startsWith('cb_sale_') || log.id.startsWith('cb_spay_') || log.id.startsWith('cb_pch_') || log.id.startsWith('cb_exp_') || log.id.startsWith('cb_lab_'))) return; 
         
         const desc = log.description || '';
         if (desc.startsWith('Labor Advance given to') || desc.startsWith('Salary Paid to') || desc.includes('(Paid To: junaid)')) return;
@@ -2778,7 +2782,7 @@ function compileCashBookTransactions() {
         }
     }
 
-    // Sort oldest first to calculate running balance correctly
+    // Purani entries ke mutabiq sort karein taake running balance sahi aaye
     allTransactions.sort((a, b) => a.date - b.date);
 
     let currentBalance = 0;
@@ -8830,13 +8834,17 @@ async function initializeApp() {
 
     updateUserNav();
     
-    // 7. Dashboard ka data seedha Firebase se load karein
-    await dbFetchInvoices();
-    await dbFetchExpenses();
-    await dbFetchPurchaseLog();
-    await dbFetchProducts();
-    await dbFetchPurchasers();
-    refreshAll();
+   // 7. Dashboard aur tamam logs ka data seedha Firebase se load karein (Data loss se bachne ke liye)
+await dbFetchInvoices();
+await dbFetchExpenses();
+await dbFetchPurchaseLog();
+await dbFetchProducts();
+await dbFetchPurchasers();
+await dbFetchCashBook();
+await dbFetchGatePasses();
+await dbFetchStockUpdates();
+await dbFetchSellReturns();
+refreshAll();
 }
 
 function toggleSubMenu(elementId) {
