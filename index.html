@@ -5927,12 +5927,14 @@ function clearPurchaseForm() {
 function displayPurchaserBalance() {
     const summaryBox = document.getElementById('purchaser-balance-summary');
     const statementButtons = document.querySelectorAll('#purchaser-statement-controls .btn');
+    const payButton = document.getElementById('btn-record-purchaser-payment');
 
     document.getElementById('add-payment-amount-purchaser').value = '';
 
     if (!selectedPurchaserForPayment) {
         summaryBox.style.display = 'none';
         statementButtons.forEach(btn => btn.disabled = true);
+        payButton.disabled = true;
         return;
     }
 
@@ -5958,6 +5960,20 @@ function displayPurchaserBalance() {
     
     summaryBox.style.display = 'block';
     statementButtons.forEach(btn => btn.disabled = false);
+
+    // --- LOCK LOGIC FOR UI ---
+    if (totalDue <= 0) {
+        payButton.disabled = true;
+        payButton.textContent = "Balance Zero - Locked";
+        payButton.style.backgroundColor = "#6b7280"; // Gray color
+        payButton.style.cursor = "not-allowed";
+    } else {
+        payButton.disabled = false;
+        payButton.textContent = "Record Payment";
+        payButton.style.backgroundColor = ""; // Reset to default
+        payButton.style.cursor = "pointer";
+    }
+    
     updateLiveBalancePreview();
 }
 
@@ -5983,6 +5999,15 @@ function recordPurchaserPayment() {
         return;
     }
 
+    // --- LOCK LOGIC FOR BACKEND ---
+    const totalDueText = document.getElementById('summary-purchaser-balance').textContent.replace(CURRENCY_SYMBOL, '');
+    const currentBalance = parseFloat(totalDueText) || 0;
+
+    if (currentBalance <= 0) {
+        alert("Error: This purchaser has no outstanding balance. Payment cannot be made.");
+        return;
+    }
+
     const purchaserId = selectedPurchaserForPayment.id;
     const paymentAmount = parseFloat(document.getElementById('add-payment-amount-purchaser').value);
     const paymentDate = document.getElementById('add-payment-date-purchaser').value;
@@ -5992,6 +6017,10 @@ function recordPurchaserPayment() {
 
     if (isNaN(paymentAmount) || paymentAmount <= 0) {
         alert("Please enter a valid payment amount.");
+        return;
+    }
+    if (paymentAmount > currentBalance) {
+        alert("Error: Payment amount cannot be greater than the outstanding balance.");
         return;
     }
     if (!paymentDate) {
@@ -6005,9 +6034,7 @@ function recordPurchaserPayment() {
 
     const txnId = editingPurchaserTxnId || ('ptxn' + Date.now()); 
 
-    const oldBalance = purchaseLog
-        .filter(log => log.purchaserId === purchaserId)
-        .reduce((sum, log) => sum + log.remainingBalance, 0);
+    const oldBalance = currentBalance;
 
     const outstandingPurchases = purchaseLog
         .filter(log => log.purchaserId === purchaserId && log.remainingBalance > 0)
@@ -6060,13 +6087,10 @@ function recordPurchaserPayment() {
     editingPurchaserTxnId = null;
 
     document.getElementById('purchaser-balance-summary').style.display = 'none';
-
     document.getElementById('add-payment-amount-purchaser').value = '';
     document.getElementById('add-payment-date-purchaser').value = ''; 
     document.getElementById('add-payment-method-purchaser').value = 'Cash';
-document.getElementById('add-payment-purchaser-account-details').value = '';
-// Nayi line jo shamil karni hai:
-document.getElementById('purchase-add-payment-details-container').style.display = 'none';
+    document.getElementById('purchase-add-payment-details-container').style.display = 'none';
 
     const btn = document.getElementById('btn-record-purchaser-payment');
     btn.textContent = "Record Payment";
@@ -6849,12 +6873,14 @@ function resetBankCashFilter() {
 }
 
 function renderBankAndCash(filterDate = null) {
-    // --- NAYA CODE: Agar date select na ho to hamesha Aaj ki date le ---
+    // Agar filterDate nahi di gayi, to aaj ki date lein
     if (!filterDate) {
         filterDate = new Date().toISOString().split('T')[0];
-        const dateBox = document.getElementById('bc-filter-date');
-        if (dateBox) dateBox.value = filterDate;
     }
+    
+    // UI mein date update karein
+    const bcDateInput = document.getElementById('bc-filter-date');
+    if (bcDateInput) bcDateInput.value = filterDate;
 
     const balances = { 'Cash': 0 };
     const dateLabel = `(${new Date(filterDate).toLocaleDateString()})`;
@@ -6862,51 +6888,44 @@ function renderBankAndCash(filterDate = null) {
     document.getElementById('bc-date-label-cash').textContent = dateLabel;
     document.getElementById('bc-date-label-bank').textContent = dateLabel;
 
-    // Accounts ki settings se payment methods read karna
+    // Payment methods load karein
     document.querySelectorAll('#partial-payment-method option').forEach(opt => {
         if (opt.value && !opt.disabled) balances[opt.value] = 0;
     });
 
-    const isSameDate = (isoString) => {
-        if (!filterDate) return true; 
-        return isoString.split('T')[0] === filterDate;
+    // --- MAIN FIX: Date comparison mein "T00:00:00" ka masla khatam karna ---
+    const isMatchingDate = (dateString) => {
+        const d = new Date(dateString);
+        // Date ka sirf year, month aur day compare karein, time ko ignore karein
+        return d.toLocaleDateString('en-CA') === filterDate;
     };
 
-    // 1. LINK WITH POS: Customer payments ko unke selected account/method mein plus karna
+    // 1. Invoices (Sales)
     partialPaymentInvoices.forEach(inv => {
         (inv.payments || []).forEach(p => {
-            if (isSameDate(p.date)) {
+            if (isMatchingDate(p.date)) {
                 const method = p.method || 'Cash';
                 if (p.amount > 0) balances[method] = (balances[method] || 0) + p.amount;
             }
         });
     });
 
-    // 2. LINK WITH EXPENSES: Us date ke Expenses ko "Cash" balance se minus karna
+    // 2. Expenses (Cash Out)
     expenses.forEach(exp => {
-        let expDate = exp.date;
-        if (expDate.includes('T')) expDate = expDate.split('T')[0];
-        
-        if (expDate === filterDate) {
-            // Expenses ko direct Cash se deduct kiya ja raha hai
+        if (isMatchingDate(exp.date)) {
             balances['Cash'] = (balances['Cash'] || 0) - exp.amount;
         }
     });
 
-    // 3. LINK WITH SELL RETURNS: Sell returns aur unki refunds ko balance se link karna
-sellReturnsLog.forEach(ret => {
-    let retDate = ret.date;
-    if (retDate.includes('T')) retDate = retDate.split('T')[0];
-    
-    if (retDate === filterDate) {
-        const method = ret.paymentMethod || 'Cash';
-        
-        // Agar netAmount positive (> 0) hai to iska matlab refund di gayi hai (outflow).
-        // Agar netAmount negative (< 0) hai to iska matlab exchange par customer se paise received hue hain (inflow).
-        balances[method] = (balances[method] || 0) - ret.netAmount;
-    }
-});
+    // 3. Sell Returns
+    sellReturnsLog.forEach(ret => {
+        if (isMatchingDate(ret.date)) {
+            const method = ret.paymentMethod || 'Cash';
+            balances[method] = (balances[method] || 0) - ret.netAmount;
+        }
+    });
 
+    // --- Table Rendering Logic wesi hi rahegi ---
     const cashBalance = balances['Cash'] || 0;
     let bankTotal = 0;
     const tbody = document.getElementById('bank-details-tbody');
@@ -6914,14 +6933,8 @@ sellReturnsLog.forEach(ret => {
 
     for (const method in balances) {
         if (method !== 'Cash') bankTotal += balances[method];
-        
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${method}</td>
-            <td style="font-weight: bold; color: ${balances[method] >= 0 ? 'var(--text-light)' : 'var(--danger-color)'};">
-                ${CURRENCY_SYMBOL}${balances[method].toFixed(2)}
-            </td>
-        `;
+        row.innerHTML = `<td>${method}</td><td style="font-weight: bold; color: ${balances[method] >= 0 ? 'var(--text-light)' : 'var(--danger-color)'};">${CURRENCY_SYMBOL}${balances[method].toFixed(2)}</td>`;
         tbody.appendChild(row);
     }
 
@@ -9755,8 +9768,7 @@ function saveCashBookHistoryEdit() {
     cashBookLog[transactionIndex].type = type;
     cashBookLog[transactionIndex].amount = amount;
     cashBookLog[transactionIndex].description = description;
-    cashBookLog[transactionIndex].date = new Date(dateVal + 'T' + getCloudDate().toTimeString().split(' ')[0]).toISOString();
-
+    const selectedDate = document.getElementById('cash-book-date-input').value;addTransactionToCashBook(description, 'in', amount, selectedDate || new Date());
     recalculateCashBookBalances();
     saveCashBookLog();
 
