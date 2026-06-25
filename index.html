@@ -2821,19 +2821,30 @@ function compileCashBookTransactions() {
 // Application load hote hi real cloud time se sync karne ka function
 async function syncCloudTimeOffset() {
     try {
-        // Pakistan (Asia/Karachi) timezone se exact real time fetch karna
-        const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Karachi');
+        // 4 seconds ka timeout lagane ke liye controller
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+        // Ek backup aur behtar stable API (timeapi.io) ka istemal
+        const response = await fetch('https://timeapi.io/api/time/current/zone?timeZone=Asia/Karachi', {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
         if (response.ok) {
             const data = await response.json();
-            const actualNetworkTime = data.unixtime * 1000; // actual network epoch time
-            const localMachineTime = Date.now();
-            
-            // Faraq (difference) save karna
-            serverTimeOffset = actualNetworkTime - localMachineTime;
-            console.log("Cloud Time synced! Time Offset calculated as: " + serverTimeOffset + " ms");
+            if (data && data.dateTime) {
+                const actualNetworkTime = new Date(data.dateTime).getTime();
+                const localMachineTime = Date.now();
+                serverTimeOffset = actualNetworkTime - localMachineTime;
+                console.log("Cloud Time synced offset: " + serverTimeOffset + " ms");
+                return;
+            }
         }
+        throw new Error("Response status ok nahi tha.");
     } catch (e) {
-        console.warn("WorldTime API offline hai. System local machine time par chal raha hai.", e);
+        // Agar API offline ho ya reset ho jaye, to local clock par silent fallback
+        console.warn("WorldTime API offline hai ya reset hui. Local machine clock use ho rahi hai.", e);
         serverTimeOffset = 0; 
     }
 }
@@ -9846,7 +9857,6 @@ function deleteCashBookTransaction(id) {
 
 
 </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"e3c1c9af36de41759418005494a48906","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 
 <!-- EDIT CASH TRANSACTION MODAL -->
 <div id="edit-cash-modal" class="modal-backdrop">
