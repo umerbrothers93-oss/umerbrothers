@@ -2848,11 +2848,18 @@ function getLocalDateString(dateInput = getCloudDate()) {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return dateInput; 
     
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+    // Yeh code hamesha strictly Pakistan (Asia/Karachi) timezone ke mutabiq date format (YYYY-MM-DD) karega
+    try {
+        const options = { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const formatter = new Intl.DateTimeFormat('en-CA', options); // 'en-CA' outputs YYYY-MM-DD
+        return formatter.format(date);
+    } catch (e) {
+        // Fallback agar browser purana ho
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
 }
 
     // --- FUNCTIONS TO EDIT & DELETE CASH HISTORY ENTRIES ---
