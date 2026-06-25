@@ -5464,7 +5464,8 @@ function clearExpenseForm(isAfterAction = false) {
     document.getElementById('expense-category').value = 'Client';
     document.getElementById('expense-amount').value = '';
     document.getElementById('expense-description').value = '';
-    document.getElementById('expense-date').valueAsDate = new Date();
+    document.getElementById('expense-date').value = getLocalDateString(getCloudDate());
+
 
     if (isAfterAction) {
         editingExpenseId = null;
@@ -9043,9 +9044,9 @@ if (moduleName === 'SellReturn') {
             await dbFetchCategories();
             populateExpenseCategoryDropdowns();
             if (!editingExpenseId) {
-                clearExpenseForm(true);
-                document.getElementById('expense-date').valueAsDate = new Date();
-            }
+    clearExpenseForm(true);
+    document.getElementById('expense-date').value = getLocalDateString(getCloudDate());
+}
         }
         if (moduleName === 'ExpenseHistory') {
             await dbFetchExpenses();
