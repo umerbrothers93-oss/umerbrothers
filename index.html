@@ -4082,7 +4082,7 @@ function openPaymentModal(invoiceId) {
     document.getElementById('btn-save-payment-changes').style.display = 'none';
 
     document.getElementById('add-payment-amount').value = '';
-    document.getElementById('add-payment-date').valueAsDate = new Date();
+    document.getElementById('add-payment-date').value = getLocalDateString(getCloudDate());
     document.getElementById('add-payment-method').value = 'Cash';
     document.getElementById('add-payment-account-details').value = '';
     document.getElementById('add-payment-notes').value = '';
@@ -4169,7 +4169,7 @@ function handlePaymentEdit(invoiceId, paymentId) {
                 const formattedDate = dateObj.toISOString().split('T')[0];
                 document.getElementById('add-payment-date').value = formattedDate;
             } else {
-                document.getElementById('add-payment-date').valueAsDate = new Date(); 
+                document.getElementById('add-payment-date').value = getLocalDateString(getCloudDate()); 
             }
         }
 
@@ -9028,7 +9028,7 @@ if (moduleName === 'SellReturn') {
             displayPurchaserBalance();
             document.getElementById('add-payment-method-purchaser').value = "Cash";
             document.getElementById('purchase-add-payment-details-container').style.display = 'none'; 
-            document.getElementById('add-payment-date-purchaser').valueAsDate = new Date();
+            document.getElementById('add-payment-date-purchaser').value = getLocalDateString(getCloudDate());
         }
         if (moduleName === 'PurchaseHistory') {
             await dbFetchPurchasers();
