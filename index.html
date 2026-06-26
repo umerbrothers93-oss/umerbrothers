@@ -1196,7 +1196,7 @@ body,
                 <!-- END NEW DASHBOARD MODULE -->
 
                 <div id="Products" class="module-content">
-                     <h2 class="panel-title"> Products</h2>
+                     <h2 class="panel-title">🍔 Products</h2>
                      <div id="product-search-bar"><input type="text" id="search-input" placeholder="Search product by name..."></div>
                     <div id="product-grid" style="flex-grow: 1;"></div>
                 </div>
@@ -3083,11 +3083,16 @@ async function dbFetchData(baseKey) {
             if (data && data.payload) {
                 return JSON.parse(data.payload);
             }
+            return [];
+        } else {
+            // Agar document cloud par exist nahi karta (deleted/empty database)
+            return null; 
         }
     } catch (e) {
         console.error("Error fetching " + baseKey + " from Firebase:", e);
+        // Network issue ya koi aur fetch error
+        return undefined; 
     }
-    return [];
 }
 
 async function loadUserSettingsOnline() {
@@ -3150,7 +3155,6 @@ async function syncDataFromFirebase() {
     const userId = loggedInUser.id || loggedInUser.uid;
     if (!userId) return;
 
-    // In tamam keys ka data humne cloud se sync karna hai
     const keysToSync = [
         SETTINGS_KEY,
         PRODUCTS_KEY,
@@ -3166,13 +3170,6 @@ async function syncDataFromFirebase() {
         STOCK_UPDATES_KEY
     ];
 
-    // Status bar par syncing ka message dikhane ke liye
-    const statusMsg = document.getElementById('trial-status-message');
-    const originalText = statusMsg ? statusMsg.textContent : '';
-    if (statusMsg) {
-        statusMsg.textContent = "Cloud se data sync ho raha hai... Meharbani karke intezar karein...";
-    }
-
     for (const baseKey of keysToSync) {
         const userKey = getUserSpecificKey(baseKey);
         try {
@@ -3180,17 +3177,15 @@ async function syncDataFromFirebase() {
             if (doc.exists) {
                 const data = doc.data();
                 if (data && data.payload) {
-                    // Cloud se mila hua data local storage mein save karein
                     localStorage.setItem(userKey, data.payload);
                 }
+            } else {
+                // Agar cloud par data nahi hai (deleted database), to local cache se bhi remove karein
+                localStorage.removeItem(userKey);
             }
         } catch (e) {
             console.error("Error syncing key from Firebase: " + userKey, e);
         }
-    }
-
-    if (statusMsg) {
-        statusMsg.textContent = originalText;
     }
 }
 
@@ -3361,31 +3356,33 @@ async function dbFetchExpenses() { expenses = await dbFetchData(EXPENSES_KEY); }
 async function dbFetchPurchasers() { purchasers = await dbFetchData(PURCHASERS_KEY); }
 async function dbFetchPurchaseLog() { purchaseLog = await dbFetchData(PURCHASE_LOG_KEY); }
 async function dbFetchCashBook() { 
-    // Cloud se data mangwayein
     const cloudData = await dbFetchData(CASH_BOOK_KEY); 
     
-    // Local memory se data mangwayein
+    // Step A: Agar database delete ho chuka hai (null), to local cache ko bhi clear karein
+    if (cloudData === null) {
+        cashBookLog = [];
+        localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify([]));
+        return;
+    }
+
+    // Step B: Agar network error hai (undefined), to offline fallback chalne dein
+    const actualCloudData = Array.isArray(cloudData) ? cloudData : [];
     const localData = JSON.parse(localStorage.getItem(getUserSpecificKey(CASH_BOOK_KEY))) || [];
     
-    // Dono ko aapas mein Merge karein taake koi offline entry delete na ho
     const combinedMap = new Map();
     
     // Pehle cloud ka data daalein
-    if(Array.isArray(cloudData)) {
-        cloudData.forEach(item => combinedMap.set(item.id, item));
-    }
+    actualCloudData.forEach(item => combinedMap.set(item.id, item));
     
-    // Phir local data daalein (agar koi entry cloud par nahi hai to wo yahan se add ho jayegi)
-    if(Array.isArray(localData)) {
-        localData.forEach(item => combinedMap.set(item.id, item));
-    }
+    // Phir local memory ka data daalein (sirf wahi jo cloud par nahi hai)
+    localData.forEach(item => combinedMap.set(item.id, item));
     
-    // Combine kiya hua data cashBookLog mein set kar dein
     cashBookLog = Array.from(combinedMap.values());
     
-    // Dono jagah updated data save kar dein
+    // Dono ko aapas mein synchronize aur save karein
     localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify(cashBookLog));
 }
+
 async function dbFetchGatePasses() { gatePassLog = await dbFetchData(GATE_PASS_LOG_KEY); }
 async function dbFetchSellReturns() { sellReturnsLog = await dbFetchData(SELL_RETURNS_KEY); }
 async function dbFetchStockUpdates() { stockUpdatesLog = await dbFetchData(STOCK_UPDATES_KEY); }
