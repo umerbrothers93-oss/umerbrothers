@@ -1196,7 +1196,7 @@ body,
                 <!-- END NEW DASHBOARD MODULE -->
 
                 <div id="Products" class="module-content">
-                     <h2 class="panel-title">🍔 Products</h2>
+                     <h2 class="panel-title"> Products</h2>
                      <div id="product-search-bar"><input type="text" id="search-input" placeholder="Search product by name..."></div>
                     <div id="product-grid" style="flex-grow: 1;"></div>
                 </div>
@@ -2782,8 +2782,9 @@ function compileCashBookTransactions() {
     });
 
     sellReturnsLog.forEach(ret => {
-        if (ret.netAmount > 0) { 
-            const d = new Date(ret.date).toISOString().split('T')[0];
+        if (typeof ret.netAmount === 'number' && !isNaN(ret.netAmount)) { 
+            // Unify date formatting to local en-CA (same as invoices)
+            const d = new Date(ret.date).toLocaleDateString('en-CA');
             dailyNet[d] = (dailyNet[d] || 0) - ret.netAmount;
         }
     });
@@ -2866,118 +2867,7 @@ function getLocalDateString(dateInput = getCloudDate()) {
     return `${year}-${month}-${day}`;
 }
 
-    // --- FUNCTIONS TO EDIT & DELETE CASH HISTORY ENTRIES ---
-
-// --- 1. SAFE DATE FORMATTING HELPER ---
-function getLocalDateString(dateInput = new Date()) {
-    const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return dateInput; // Fallback agar pehle se formatted ho
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
-}
-
-// --- 2. OLD DATA SANITIZATION (Missing IDs Fix) ---
-// Yeh function purane bina-ID wale records ko automatic unique IDs de dega
-function sanitizeCashBookLog() {
-    let changesMade = false;
-    if (Array.isArray(cashBookLog)) {
-        cashBookLog.forEach((log, index) => {
-            if (!log.id) {
-                log.id = 'cb_auto_' + Date.now() + '_' + index;
-                changesMade = true;
-            }
-        });
-    }
-    if (changesMade) {
-        saveCashBookLog(); // Local storage mein save karein
-        console.log("Purane Cash Book records ko automatic IDs de di gayi hain.");
-    }
-}
-
-// --- 3. EDIT BUTTON CLICK LOGIC ---
-function editCashBookTransaction(id) {
-    // Database ko sanitize karein taake koi bina ID ka record masla na kare
-    sanitizeCashBookLog();
-
-    const transaction = cashBookLog.find(log => log.id === id);
-    if (!transaction) {
-        alert("Ghalti: Is transaction ka record database mein nahi mila.");
-        return;
-    }
-
-    // Form inputs mein data fill karna
-    document.getElementById('edit-cash-id').value = id;
-    document.getElementById('edit-cash-type').value = transaction.type;
-    document.getElementById('edit-cash-amount').value = transaction.amount;
-    document.getElementById('edit-cash-description').value = transaction.description;
-    
-    // Sahi date format set karna
-    const formattedDate = getLocalDateString(transaction.date);
-    document.getElementById('edit-cash-date').value = formattedDate;
-
-    // Modal ko screen par show karna
-    const modal = document.getElementById('edit-cash-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-    } else {
-        alert("Ghalti: 'edit-cash-modal' element page par mojud nahi hai.");
-    }
-}
-
-function closeEditCashModal() {
-    const modal = document.getElementById('edit-cash-modal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-function saveCashBookHistoryEdit() {
-    const id = document.getElementById('edit-cash-id').value;
-    const type = document.getElementById('edit-cash-type').value;
-    const amount = parseFloat(document.getElementById('edit-cash-amount').value);
-    const description = document.getElementById('edit-cash-description').value.trim();
-    const dateVal = document.getElementById('edit-cash-date').value;
-
-    if (isNaN(amount) || amount <= 0) {
-        alert("Meharbani karke sahi raqam enter karein.");
-        return;
-    }
-    if (!description) {
-        alert("Description likhna zaruri hai.");
-        return;
-    }
-    if (!dateVal) {
-        alert("Date select karein.");
-        return;
-    }
-
-    const transactionIndex = cashBookLog.findIndex(log => log.id === id);
-    if (transactionIndex === -1) {
-        alert("Record database mein nahi mila.");
-        return;
-    }
-
-    // Values update karna
-    cashBookLog[transactionIndex].type = type;
-    cashBookLog[transactionIndex].amount = amount;
-    cashBookLog[transactionIndex].description = description;
-    cashBookLog[transactionIndex].date = new Date(dateVal + 'T' + getCloudDate().toTimeString().split(' ')[0]).toISOString();
-
-    recalculateCashBookBalances();
-    saveCashBookLog();
-
-    alert("Cash entry kamyabi se tabdeel ho gayi!");
-    closeEditCashModal();
-    
-    // Screens refresh karna
-    renderCashBookHistory();
-    if (typeof renderCashBook === 'function') renderCashBook();
-    renderDashboard();
-}
+ 
 
 
 // --- ADMIN DASHBOARD FUNCTIONS (FIREBASE VERSION) ---
@@ -3083,16 +2973,11 @@ async function dbFetchData(baseKey) {
             if (data && data.payload) {
                 return JSON.parse(data.payload);
             }
-            return [];
-        } else {
-            // Agar document cloud par exist nahi karta (deleted/empty database)
-            return null; 
         }
     } catch (e) {
         console.error("Error fetching " + baseKey + " from Firebase:", e);
-        // Network issue ya koi aur fetch error
-        return undefined; 
     }
+    return [];
 }
 
 async function loadUserSettingsOnline() {
@@ -3155,6 +3040,7 @@ async function syncDataFromFirebase() {
     const userId = loggedInUser.id || loggedInUser.uid;
     if (!userId) return;
 
+    // In tamam keys ka data humne cloud se sync karna hai
     const keysToSync = [
         SETTINGS_KEY,
         PRODUCTS_KEY,
@@ -3170,6 +3056,13 @@ async function syncDataFromFirebase() {
         STOCK_UPDATES_KEY
     ];
 
+    // Status bar par syncing ka message dikhane ke liye
+    const statusMsg = document.getElementById('trial-status-message');
+    const originalText = statusMsg ? statusMsg.textContent : '';
+    if (statusMsg) {
+        statusMsg.textContent = "Cloud se data sync ho raha hai... Meharbani karke intezar karein...";
+    }
+
     for (const baseKey of keysToSync) {
         const userKey = getUserSpecificKey(baseKey);
         try {
@@ -3177,15 +3070,17 @@ async function syncDataFromFirebase() {
             if (doc.exists) {
                 const data = doc.data();
                 if (data && data.payload) {
+                    // Cloud se mila hua data local storage mein save karein
                     localStorage.setItem(userKey, data.payload);
                 }
-            } else {
-                // Agar cloud par data nahi hai (deleted database), to local cache se bhi remove karein
-                localStorage.removeItem(userKey);
             }
         } catch (e) {
             console.error("Error syncing key from Firebase: " + userKey, e);
         }
+    }
+
+    if (statusMsg) {
+        statusMsg.textContent = originalText;
     }
 }
 
@@ -3279,24 +3174,6 @@ async function loadGlobalUsers() {
 }
 
 
-// 4. Dropdown (Select User to Manage Access) bharne ka function
-function populateUserDropdown() {
-    const select = document.getElementById('select-user-for-perm');
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">-- Select User --</option>';
-    
-    // Saare users (siwaye admin ke) dropdown mein dalien
-    users.forEach(u => {
-        if (u.role !== 'admin') {
-            const option = document.createElement('option');
-            option.value = u.id;
-            option.textContent = `${u.name} (${u.email})`;
-            select.appendChild(option);
-        }
-    });
-}
-
 
 
 async function saveOnlineData(subCollection, docId, data) {
@@ -3356,33 +3233,31 @@ async function dbFetchExpenses() { expenses = await dbFetchData(EXPENSES_KEY); }
 async function dbFetchPurchasers() { purchasers = await dbFetchData(PURCHASERS_KEY); }
 async function dbFetchPurchaseLog() { purchaseLog = await dbFetchData(PURCHASE_LOG_KEY); }
 async function dbFetchCashBook() { 
+    // Cloud se data mangwayein
     const cloudData = await dbFetchData(CASH_BOOK_KEY); 
     
-    // Step A: Agar database delete ho chuka hai (null), to local cache ko bhi clear karein
-    if (cloudData === null) {
-        cashBookLog = [];
-        localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify([]));
-        return;
-    }
-
-    // Step B: Agar network error hai (undefined), to offline fallback chalne dein
-    const actualCloudData = Array.isArray(cloudData) ? cloudData : [];
+    // Local memory se data mangwayein
     const localData = JSON.parse(localStorage.getItem(getUserSpecificKey(CASH_BOOK_KEY))) || [];
     
+    // Dono ko aapas mein Merge karein taake koi offline entry delete na ho
     const combinedMap = new Map();
     
     // Pehle cloud ka data daalein
-    actualCloudData.forEach(item => combinedMap.set(item.id, item));
+    if(Array.isArray(cloudData)) {
+        cloudData.forEach(item => combinedMap.set(item.id, item));
+    }
     
-    // Phir local memory ka data daalein (sirf wahi jo cloud par nahi hai)
-    localData.forEach(item => combinedMap.set(item.id, item));
+    // Phir local data daalein (agar koi entry cloud par nahi hai to wo yahan se add ho jayegi)
+    if(Array.isArray(localData)) {
+        localData.forEach(item => combinedMap.set(item.id, item));
+    }
     
+    // Combine kiya hua data cashBookLog mein set kar dein
     cashBookLog = Array.from(combinedMap.values());
     
-    // Dono ko aapas mein synchronize aur save karein
+    // Dono jagah updated data save kar dein
     localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify(cashBookLog));
 }
-
 async function dbFetchGatePasses() { gatePassLog = await dbFetchData(GATE_PASS_LOG_KEY); }
 async function dbFetchSellReturns() { sellReturnsLog = await dbFetchData(SELL_RETURNS_KEY); }
 async function dbFetchStockUpdates() { stockUpdatesLog = await dbFetchData(STOCK_UPDATES_KEY); }
@@ -6621,8 +6496,7 @@ function generatePurchaserReportPDF(reportType) {
 function calculateCurrentCashBalance() {
     let totalSales = 0; partialPaymentInvoices.forEach(inv => (inv.payments ||[]).forEach(p => totalSales += p.amount));
     let totalExpenses = 0; expenses.forEach(exp => totalExpenses += exp.amount);
-    let totalReturns = 0; sellReturnsLog.forEach(ret => { if (ret.netAmount > 0) totalReturns += ret.netAmount; });
-    let remainingSale = totalSales - totalExpenses - totalReturns;
+let totalReturns = 0; sellReturnsLog.forEach(ret => { if (typeof ret.netAmount === 'number' && !isNaN(ret.netAmount)) totalReturns += ret.netAmount; });    let remainingSale = totalSales - totalExpenses - totalReturns;
 
     let manualCashIn = 0;
     let manualCashOut = 0;
@@ -6935,11 +6809,14 @@ function renderBankAndCash(filterDate = null) {
         if (opt.value && !opt.disabled) balances[opt.value] = 0;
     });
 
-    // --- MAIN FIX: Date comparison mein "T00:00:00" ka masla khatam karna ---
+    // Robust local timezone-agnostic date matcher
     const isMatchingDate = (dateString) => {
         const d = new Date(dateString);
-        // Date ka sirf year, month aur day compare karein, time ko ignore karein
-        return d.toLocaleDateString('en-CA') === filterDate;
+        if (isNaN(d.getTime())) return false;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}` === filterDate;
     };
 
     // 1. Invoices (Sales)
@@ -8121,35 +7998,15 @@ function populatePaymentMethods() {
     const addPaymentMethodPurchaser = document.getElementById('add-payment-method-purchaser');
     if (addPaymentMethodPurchaser) addPaymentMethodPurchaser.innerHTML = html;
     
-    // POS main billing form dropdown
-    const partialPaymentMethod = document.getElementById('partial-payment-method');
-    if (partialPaymentMethod) partialPaymentMethod.innerHTML = html;
-    
-    // POS payment modal dropdown
-    const addPaymentMethod = document.getElementById('add-payment-method');
-    if (addPaymentMethod) addPaymentMethod.innerHTML = html;
-
-function populatePaymentMethods() {
-    const html = getPaymentMethodsHTML();
-    
-    const purchasePaymentMethod = document.getElementById('purchase-payment-method');
-    if (purchasePaymentMethod) purchasePaymentMethod.innerHTML = html;
-    
-    const addPaymentMethodPurchaser = document.getElementById('add-payment-method-purchaser');
-    if (addPaymentMethodPurchaser) addPaymentMethodPurchaser.innerHTML = html;
-    
     const partialPaymentMethod = document.getElementById('partial-payment-method');
     if (partialPaymentMethod) partialPaymentMethod.innerHTML = html;
     
     const addPaymentMethod = document.getElementById('add-payment-method');
     if (addPaymentMethod) addPaymentMethod.innerHTML = html;
 
-    // NAYA CODE: Sell Return ke payment selector ko populate karein
+    // Sell Return ke payment selector ko bhi yahan populate karein
     const returnPaymentMethod = document.getElementById('return-payment-method');
     if (returnPaymentMethod) returnPaymentMethod.innerHTML = html;
-}
-
-
 }
 
 function handlePaymentMethodChange(selectElement, detailsContainer) {
@@ -8598,44 +8455,6 @@ function renderUserPermissions() {
     container.appendChild(grid);
 }
 
-function renderPermissionsManagement() {
-    const container = document.getElementById('permissions-management-area');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const modules = [
-    'Dashboard', 'Products', 'ManageProducts', 'ProductStockReport',
-    'PartialPayments', 'SellReturn', 'AllReports', 'ProfitLossStatement',
-    'PurchasePurchaserDetail', 'PurchaseProductPayment', 'PurchaseAddPayment',
-    'PurchaseHistory', 'PurchaseReports', 'AddExpense', 'ExpenseHistory',
-    'GatePass', 'GatePassHistory', 'CashBook', 'CashBookHistory', 'BankAndCash', 'Settings'
-];
-
-    const role = 'client';
-    if (!appSettings.permissions) {
-        appSettings.permissions = {};
-    }
-    if (!appSettings.permissions[role]) {
-        appSettings.permissions[role] = ['Dashboard', 'Products', 'PartialPayments', 'SellReturn'];
-    }
-
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
-    grid.style.gap = '10px';
-
-    modules.forEach(module => {
-        const isChecked = appSettings.permissions[role].includes(module);
-        const displayLabel = module === 'PartialPayments' ? 'POS' : module;
-        grid.innerHTML += `
-            <div class="checkbox-group" style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" id="perm-${role}-${module}" class="role-perm-check" value="${module}" ${isChecked ? 'checked' : ''}>
-                <label for="perm-${role}-${module}">${displayLabel}</label>
-            </div>
-        `;
-    });
-    container.appendChild(grid);
-}
 
 async function saveUserSpecificPermissions() {
     const userId = document.getElementById('select-user-for-perm').value;
@@ -9080,15 +8899,15 @@ if (moduleName === 'SellReturn') {
     renderCashBookHistory();
 }
 
-        if (moduleName === 'BankAndCash') {
+       if (moduleName === 'BankAndCash') {
             await dbFetchInvoices();
             await dbFetchPurchaseLog();
             await dbFetchExpenses();
             await dbFetchSellReturns();
             await dbFetchCashBook();
             
-            // Aaj ki date nikal kar default set karein
-            const aajKiDate = new Date().toISOString().split('T')[0];
+            // Adjusted local cloud date detect karne ke liye helper use karein
+            const aajKiDate = getLocalDateString();
             document.getElementById('bc-filter-date').value = aajKiDate;
             
             renderBankAndCash(aajKiDate);
@@ -9482,6 +9301,8 @@ async function deleteUser(userId) {
     if (!confirm("Permanently delete this user?")) return; 
     try {
         await db.collection('users').doc(userId).delete();
+        // Local state ko database ke sath sync karein
+        users = users.filter(u => u.id !== userId); 
         alert("User deleted successfully!");
         await renderAdminDashboard(); 
     } catch (e) {
@@ -9632,13 +9453,11 @@ function renderCashBookHistory() {
                 <button class="btn btn-sm btn-danger" onclick="deletePurchaserPaymentFromHistory('${t.txnId}')">Delete</button>
             `;
         } else if (t.isSalePayment && t.paymentId) {
-            // Sales payments (POS client receipts)
+            // Placeholder fallback (non-clickable info tags to avoid crash)
             actionsHTML = `
-                <button class="btn btn-sm btn-warning" onclick="editSalePaymentFromHistory('${t.invoiceId}', '${t.paymentId}')">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteSalePaymentFromHistory('${t.invoiceId}', '${t.paymentId}')">Delete</button>
+                <small style="color:var(--text-color); font-style: italic;">Linked POS Invoice Payment</small>
             `;
         }
-
         row.innerHTML = `
             <td>${dateStr}</td>
             <td>${t.description}</td>
@@ -9719,20 +9538,11 @@ function generateCashBookHistoryPDF() {
 }
 
 // =========================================================
+// =========================================================
 // NEW CASH BOOK HISTORY EDIT & DELETE ACTIONS (ADD AT THE END)
 // =========================================================
 
-// Safe date generator
-function getLocalDateString(dateInput = new Date()) {
-    const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return dateInput;
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
-}
+
 
 // Old missing IDs sanitizer
 function sanitizeCashBookLog() {
@@ -9781,12 +9591,13 @@ function closeEditCashModal() {
     }
 }
 
+// Sahi date ID 'edit-cash-date' ke sath durust function
 function saveCashBookHistoryEdit() {
     const id = document.getElementById('edit-cash-id').value;
     const type = document.getElementById('edit-cash-type').value;
     const amount = parseFloat(document.getElementById('edit-cash-amount').value);
     const description = document.getElementById('edit-cash-description').value.trim();
-    const dateVal = document.getElementById('edit-cash-date').value;
+    const dateVal = document.getElementById('edit-cash-date').value; // Sahi ID yahan use ki hai
 
     if (isNaN(amount) || amount <= 0) {
         alert("Meharbani karke sahi raqam enter karein.");
@@ -9807,10 +9618,14 @@ function saveCashBookHistoryEdit() {
         return;
     }
 
+    // Sirf purani entry ko update karein (Naya duplicate record nahi banega)
     cashBookLog[transactionIndex].type = type;
     cashBookLog[transactionIndex].amount = amount;
     cashBookLog[transactionIndex].description = description;
-    const selectedDate = document.getElementById('cash-book-date-input').value;addTransactionToCashBook(description, 'in', amount, selectedDate || new Date());
+    
+    // Sahi local date parsing taake timezone piche na jaye (Bug 5 ka hal)
+    cashBookLog[transactionIndex].date = new Date(dateVal.replace(/-/g, '/') + ' 00:00:00').toISOString();
+
     recalculateCashBookBalances();
     saveCashBookLog();
 
@@ -9825,11 +9640,11 @@ function saveCashBookHistoryEdit() {
 // Delete function trigger
 function deleteCashBookTransaction(id) {
     if (!id || id === 'undefined') {
-        alert("System Warning: Is entry ki security ID ghalat hai. Page ko Ctrl+F5 daba kar hard refresh karein taake system naye IDs generate kar sake.");
+        alert("System Warning: Security ID ghalat hai. Page refresh karein.");
         return;
     }
 
-    if (!confirm("Kya aap waqai is cash transaction ko mukammal taur par delete karna chahte hain?")) {
+    if (!confirm("Kya aap waqai is cash transaction ko delete karna chahte hain?")) {
         return;
     }
 
@@ -9837,13 +9652,13 @@ function deleteCashBookTransaction(id) {
     cashBookLog = cashBookLog.filter(log => log.id && log.id !== id);
 
     if (cashBookLog.length === initialLength) {
-        alert("Database Warning: Record delete karne mein masla pesh aya. Page refresh kar ke dubara koshish karein.");
+        alert("Database Warning: Record delete nahi ho saka.");
         return;
     }
 
     saveCashBookLog();
 
-    alert("Transaction kamyabi se delete ho gayi.");
+    alert("Transaction delete ho gayi.");
     
     renderCashBookHistory();
     if (typeof renderCashBook === 'function') renderCashBook();
