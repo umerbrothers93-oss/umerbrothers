@@ -3329,28 +3329,29 @@ function refreshAll() {
 
 // --- NEW DASHBOARD FUNCTIONS ---
 function renderDashboard() {
-const getTodayString = () => getLocalDateString(getCloudDate());
+    const getTodayString = () => getLocalDateString(getCloudDate());
     const todayStr = getTodayString();
 
-const todaysSales = partialPaymentInvoices
-    .filter(inv => getLocalDateString(inv.createdAt) === todayStr)
-    .reduce((sum, inv) => sum + inv.paidAmount, 0);
+    const todaysSales = partialPaymentInvoices
+        .filter(inv => getLocalDateString(inv.createdAt) === todayStr)
+        .reduce((sum, inv) => sum + inv.paidAmount, 0);
 
-const todaysExpenses = expenses
-    .filter(exp => getLocalDateString(exp.date) === todayStr)
-    .reduce((sum, exp) => sum + exp.amount, 0);
+    const todaysExpenses = expenses
+        .filter(exp => getLocalDateString(exp.date) === todayStr)
+        .reduce((sum, exp) => sum + exp.amount, 0);
 
-const todaysPurchases = purchaseLog
-    .filter(log => getLocalDateString(log.date) === todayStr)
-    .reduce((sum, log) => sum + (log.grandTotal || log.totalCost), 0);
+    const todaysPurchases = purchaseLog
+        .filter(log => getLocalDateString(log.date) === todayStr)
+        .reduce((sum, log) => sum + (log.grandTotal || log.totalCost), 0);
 
-// NAYI LINE YAHAN ADD KAREIN
-const totalReceivables = partialPaymentInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0);
+    // NAYI LINE YAHAN ADD KAREIN
+    const totalReceivables = partialPaymentInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0);
 
-document.getElementById('dashboard-total-sales').textContent = `${CURRENCY_SYMBOL}${todaysSales.toFixed(2)}`;
-document.getElementById('dashboard-total-expenses').textContent = `${CURRENCY_SYMBOL}${todaysExpenses.toFixed(2)}`;
-document.getElementById('dashboard-total-purchases').textContent = `${CURRENCY_SYMBOL}${todaysPurchases.toFixed(2)}`;
-document.getElementById('dashboard-total-receivables').textContent = `${CURRENCY_SYMBOL}${totalReceivables.toFixed(2)}`;
+const netSales = todaysSales - todaysExpenses;
+document.getElementById('dashboard-total-sales').textContent = `${CURRENCY_SYMBOL}${netSales.toFixed(2)}`;    document.getElementById('dashboard-total-expenses').textContent = `${CURRENCY_SYMBOL}${todaysExpenses.toFixed(2)}`;
+    document.getElementById('dashboard-total-purchases').textContent = `${CURRENCY_SYMBOL}${todaysPurchases.toFixed(2)}`;
+    document.getElementById('dashboard-total-receivables').textContent = `${CURRENCY_SYMBOL}${totalReceivables.toFixed(2)}`;
+    
 
     // 2. Important Alerts
     // Low Stock
