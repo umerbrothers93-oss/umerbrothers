@@ -6780,7 +6780,11 @@ function addCashToBook() {
         return;
     }
     
-addTransactionToCashBook(fullDescription, 'out', amount, getLocalDateString(), newLogEntry.id);
+    // Sahi details aur cloud date ke sath transaction save karna
+    const transactionId = 'cb' + Date.now();
+    const now = getCloudDate(); // Cloud sync offset date
+    
+    addTransactionToCashBook(description, 'in', amount, now.toISOString(), transactionId);
     
     alert(`Successfully added ${CURRENCY_SYMBOL}${amount.toFixed(2)} to the cash book.`);
     
