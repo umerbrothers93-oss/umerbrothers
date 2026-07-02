@@ -2609,6 +2609,125 @@ body,
 
 <script>
 
+
+// 1. Auto Calculation (Sub kuch auto fill karega)
+function calculateAutoFields() {
+    const demand = parseFloat(document.getElementById('d-demand').value) || 0;
+    const price = parseFloat(document.getElementById('d-price').value) || 0;
+    const recovery = parseFloat(document.getElementById('d-recovery').value) || 0;
+    const onlineRec = parseFloat(document.getElementById('d-online-rec').value) || 0;
+    const oldBalance = parseFloat(document.getElementById('d-old-balance').value) || 0;
+    const balance = parseFloat(document.getElementById('d-balance').value) || 0;
+
+    const bill = demand * price;
+    // Net Balance Formula: (Bill + Old Balance + Balance) - (Recovery + Online Recovery)
+    const netBalance = (bill + oldBalance + balance) - (recovery + onlineRec);
+
+    document.getElementById('d-bill').value = bill.toFixed(2);
+    document.getElementById('d-net-balance').value = netBalance.toFixed(2);
+}
+
+// 2. Save Function (Data Firebase mein save karne ke liye)
+async function saveDemandRecord() {
+    const customer = document.getElementById('d-customer').value.trim();
+    if (!customer) { alert("Customer Name likhna lazmi hai!"); return; }
+
+    const record = {
+        id: 'dem' + Date.now(),
+        date: new Date().toISOString(),
+        customer: customer,
+        demand: document.getElementById('d-demand').value || 0,
+        price: document.getElementById('d-price').value || 0,
+        bill: document.getElementById('d-bill').value || 0,
+        recovery: document.getElementById('d-recovery').value || 0,
+        onlineRec: document.getElementById('d-online-rec').value || 0,
+        oldBalance: document.getElementById('d-old-balance').value || 0,
+        balance: document.getElementById('d-balance').value || 0,
+        netBalance: document.getElementById('d-net-balance').value || 0,
+        status: 'unpaid'
+    };
+
+    try {
+        const userId = loggedInUser.id || loggedInUser.uid;
+        if (!Array.isArray(demandRecords)) demandRecords = [];
+        demandRecords.push(record);
+        
+        await db.collection('appData').doc(userId).collection('datasets').doc('demand_records').set({
+            payload: JSON.stringify(demandRecords)
+        });
+        
+        alert("Demand Record kamyabi se save ho gaya!");
+        clearDemandForm();
+        renderDemandRecord(); // Foran table update karein
+    } catch (e) {
+        alert("Save Error: " + e.message);
+    }
+}
+
+// 3. Render Function (Table mein data dikhane ke liye - Fixed Version)
+function renderDemandRecord() {
+    const tbody = document.getElementById('demand-record-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    if (!demandRecords || !Array.isArray(demandRecords)) return;
+
+    const searchTerm = document.getElementById('demand-search').value.toLowerCase();
+    const filterDate = document.getElementById('demand-filter-date').value;
+
+    const filtered = demandRecords.filter(r => {
+        const matchesName = r.customer.toLowerCase().includes(searchTerm);
+        const matchesDate = !filterDate || r.date.startsWith(filterDate);
+        return matchesName && matchesDate;
+    });
+
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(rec => {
+        tbody.innerHTML += `<tr>
+            <td>${new Date(rec.date).toLocaleDateString()}</td>
+            <td>${rec.customer}</td>
+            <td>${rec.demand}</td>
+            <td>${rec.price}</td>
+            <td>${rec.recovery}</td>
+            <td>${rec.bill}</td>
+            <td>${rec.oldBalance}</td>
+            <td>${rec.onlineRec}</td>
+            <td>${rec.balance}</td>
+            <td style="font-weight:bold; color:#14b8a6;">${rec.netBalance}</td>
+        </tr>`;
+    });
+    
+    // Agar tracking list bhi hai toh usay bhi refresh karein
+    if(typeof renderDemandList === 'function') renderDemandList('all');
+}
+
+// 4. PDF Generation (Landscape mode for 10 columns)
+function generateDemandPDF(type) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4'); // 'l' for landscape
+
+    doc.text("Demand Record Report", 14, 15);
+    const rows = demandRecords.map(r => [
+        new Date(r.date).toLocaleDateString(), r.customer, r.demand, r.price, r.recovery, r.bill, r.oldBalance, r.onlineRec, r.balance, r.netBalance
+    ]);
+
+    doc.autoTable({
+        startY: 20,
+        head: [['Date', 'Name', 'Demand', 'Price', 'Recovery', 'Bill', 'Old Bal', 'Online', 'Bal', 'Net Bal']],
+        body: rows,
+        styles: { fontSize: 8 }
+    });
+    doc.save("Demand_Report.pdf");
+}
+
+function resetDemandFilters() {
+    document.getElementById('demand-search').value = '';
+    document.getElementById('demand-filter-date').value = '';
+    renderDemandRecord();
+}
+
+
+
+
     // Opens the pop-up modal right on the current screen
 function editPurchaserPaymentFromHistory(txnId, purchaserId) {
     // 1. Gather payment details compiled from purchase logs
@@ -7412,7 +7531,7 @@ function renderAllReports() {
             }
         });
 
-        const itemsToDisplay =[];
+        const itemsToDisplay = [];
         inv.invoiceItems.forEach(item => {
             const netQty = item.quantity; 
             if (netQty > 0) {
@@ -7431,35 +7550,39 @@ function renderAllReports() {
             totalReceivables += inv.remainingBalance;
         }
 
-        itemsToDisplay.forEach((item, index) => {
-            const row = document.createElement('tr');
-            
-            let paymentBreakdownHTML = '-';
-            if (index === 0) {
-                paymentBreakdownHTML = inv.payments
-                    .filter(p => p.amount >= 0)
-                    .map(p => {
-                        let methodText = p.method || 'Cash';
-                        return `<span style="font-size: 0.85rem; display: block; border-bottom: 1px solid #444; padding-bottom: 2px;">
-                                    ${new Date(p.date).toLocaleDateString()} <br><small>[${methodText}]</small>: <b>${CURRENCY_SYMBOL}${p.amount.toFixed(2)}</b>
-                                </span>`;
-                    }).join('');
-            }
+        // --- NAYA BADLAV: Sirf wahi items table mein show hon jo is select kiye gaye din sale hue the ---
+        const isCreatedInRange = invDate >= from && invDate <= to;
+        if (isCreatedInRange) {
+            itemsToDisplay.forEach((item, index) => {
+                const row = document.createElement('tr');
+                
+                let paymentBreakdownHTML = '-';
+                if (index === 0) {
+                    paymentBreakdownHTML = inv.payments
+                        .filter(p => p.amount >= 0)
+                        .map(p => {
+                            let methodText = p.method || 'Cash';
+                            return `<span style="font-size: 0.85rem; display: block; border-bottom: 1px solid #444; padding-bottom: 2px;">
+                                        ${new Date(p.date).toLocaleDateString()} <br><small>[${methodText}]</small>: <b>${CURRENCY_SYMBOL}${p.amount.toFixed(2)}</b>
+                                    </span>`;
+                        }).join('');
+                }
 
-            const balDisplay = index === 0 ? `${CURRENCY_SYMBOL}${inv.remainingBalance.toFixed(2)}` : '-';
-            
-            row.innerHTML = `
-                <td>${new Date(inv.createdAt).toLocaleDateString()}</td>
-                <td>${inv.invoiceId}</td>
-                <td>${inv.customerName}</td>
-                <td>${item.name}</td>
-                <td>${item.originalQuantity || item.quantity}</td>
-                <td>${CURRENCY_SYMBOL}${item.netAmount.toFixed(2)}</td>
-                <td>${paymentBreakdownHTML}</td>
-                <td style="color: ${inv.remainingBalance > 0 ? 'var(--danger-color)' : 'var(--success-color)'}; font-weight: bold;">${balDisplay}</td>
-            `;
-            salesTbody.appendChild(row);
-        });
+                const balDisplay = index === 0 ? `${CURRENCY_SYMBOL}${inv.remainingBalance.toFixed(2)}` : '-';
+                
+                row.innerHTML = `
+                    <td>${new Date(inv.createdAt).toLocaleDateString()}</td>
+                    <td>${inv.invoiceId}</td>
+                    <td>${inv.customerName}</td>
+                    <td>${item.name}</td>
+                    <td>${item.originalQuantity || item.quantity}</td>
+                    <td>${CURRENCY_SYMBOL}${item.netAmount.toFixed(2)}</td>
+                    <td>${paymentBreakdownHTML}</td>
+                    <td style="color: ${inv.remainingBalance > 0 ? 'var(--danger-color)' : 'var(--success-color)'}; font-weight: bold;">${balDisplay}</td>
+                `;
+                salesTbody.appendChild(row);
+            });
+        }
     });
     
     const filteredExpenses = expenses.filter(exp => new Date(exp.date + 'T00:00:00') >= from && new Date(exp.date + 'T00:00:00') <= to);
