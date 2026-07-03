@@ -2994,7 +2994,7 @@ async function syncCloudTimeOffset() {
         if (response.ok) {
             const data = await response.json();
             if (data && data.dateTime) {
-                const actualNetworkTime = new Date(data.dateTime).getTime();
+const actualNetworkTime = new Date(data.dateTime + "+05:00").getTime();
                 const localMachineTime = Date.now();
                 serverTimeOffset = actualNetworkTime - localMachineTime;
                 console.log("Cloud Time synced offset: " + serverTimeOffset + " ms");
