@@ -4100,7 +4100,8 @@ function renderPartialPaymentTable() {
         invoice.customerName.toLowerCase().includes(searchQuery) ||
         invoice.customerPhone.toLowerCase().includes(searchQuery) ||
         String(invoice.invoiceId).includes(searchQuery) 
-    ).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    ).sort((a,b) => b.invoiceId - a.invoiceId)
+
 
     filteredInvoices.forEach(invoice => {
         const row = document.createElement('tr');
@@ -7555,10 +7556,16 @@ function renderAllReports() {
         }
 
         // --- NAYA BADLAV: Sirf wahi items table mein show hon jo is select kiye gaye din sale hue the ---
-        const isCreatedInRange = invDate >= from && invDate <= to;
-        if (isCreatedInRange) {
-            itemsToDisplay.forEach((item, index) => {
-                const row = document.createElement('tr');
+        // --- JADEED BADLAV: Agar sale aaj hui ho YA aaj koi pending payment receive hui ho, dono suraton mein table mein show hoga ---
+const isCreatedInRange = invDate >= from && invDate <= to;
+const hasPaymentInRange = inv.payments.some(p => {
+    const pDate = new Date(p.date);
+    return pDate >= from && pDate <= to;
+});
+
+if (isCreatedInRange || hasPaymentInRange) {
+    itemsToDisplay.forEach((item, index) => {
+        const row = document.createElement('tr');
                 
                 let paymentBreakdownHTML = '-';
                 if (index === 0) {
