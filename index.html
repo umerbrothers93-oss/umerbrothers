@@ -7506,96 +7506,75 @@ function setAllReportsFilter(type) {
     renderAllReports();
 }
 
+// --- NEW CODE (Strict Logic for specific Date) ---
 function renderAllReports() {
     const { from, to } = allReportsFilter;
 
     const salesTbody = document.getElementById('ar-sales-tbody'); 
-    salesTbody.innerHTML = '';
+    const expensesTbody = document.getElementById('ar-expenses-tbody'); 
+    const returnsTbody = document.getElementById('ar-returns-tbody'); 
     
-    const filteredSales = partialPaymentInvoices.filter(inv => { 
+    salesTbody.innerHTML = '';
+    expensesTbody.innerHTML = '';
+    returnsTbody.innerHTML = '';
+
+    // LOGIC FIX: Sirf wahi invoices jo strictly is range mein BANI hain (createdAt)
+    const strictlyFilteredSales = partialPaymentInvoices.filter(inv => { 
         const invDate = new Date(inv.createdAt); 
-        const createdInRange = invDate >= from && invDate <= to;
-        const hasPaymentInRange = inv.payments.some(p => {
-            const pDate = new Date(p.date);
-            return pDate >= from && pDate <= to;
-        });
-        return createdInRange || hasPaymentInRange; 
+        return invDate >= from && invDate <= to;
     });
 
-    let totalSalesPayments = 0; 
-    let totalNetSaleValue = 0;  
-    let totalReceivables = 0;   
+    let totalSalesPayments = 0; // Total Cash Rcvd today
+    let totalNetSaleValue = 0;  // Total Sale value today
+    let totalReceivables = 0;   // Remaining bal on today's bills
 
-    filteredSales.forEach(inv => {
+    // Summary calculation poori database se (taake purani payment aaj ke cash mein shamil ho)
+    partialPaymentInvoices.forEach(inv => {
         inv.payments.forEach(p => {
             const pDate = new Date(p.date);
-            if (pDate >= from && pDate <= to) {
-                if (p.amount > 0) {   
-                    totalSalesPayments += p.amount;
-                }
+            // Sirf haqiqi payments (Return wali negative payment nahi)
+            if (pDate >= from && pDate <= to && p.amount > 0 && p.method !== 'Maal Wapsi (Return)') {
+                totalSalesPayments += p.amount;
             }
         });
-
-        const itemsToDisplay = [];
-        inv.invoiceItems.forEach(item => {
-            const netQty = item.quantity; 
-            if (netQty > 0) {
-                itemsToDisplay.push({
-                    ...item,
-                    netQty: netQty,
-                    netAmount: netQty * item.price
-                });
-            }
-        });
-
-        const invDate = new Date(inv.createdAt);
-        if (invDate >= from && invDate <= to) {
-            const invNetTotal = itemsToDisplay.reduce((sum, i) => sum + i.netAmount, 0);
-            totalNetSaleValue += invNetTotal;
-            totalReceivables += inv.remainingBalance;
-        }
-
-        // --- NAYA BADLAV: Sirf wahi items table mein show hon jo is select kiye gaye din sale hue the ---
-        // --- JADEED BADLAV: Agar sale aaj hui ho YA aaj koi pending payment receive hui ho, dono suraton mein table mein show hoga ---
-const isCreatedInRange = invDate >= from && invDate <= to;
-const hasPaymentInRange = inv.payments.some(p => {
-    const pDate = new Date(p.date);
-    return pDate >= from && pDate <= to;
-});
-
-if (isCreatedInRange || hasPaymentInRange) {
-    itemsToDisplay.forEach((item, index) => {
-        const row = document.createElement('tr');
-                
-                let paymentBreakdownHTML = '-';
-                if (index === 0) {
-                    paymentBreakdownHTML = inv.payments
-                        .filter(p => p.amount >= 0)
-                        .map(p => {
-                            let methodText = p.method || 'Cash';
-                            return `<span style="font-size: 0.85rem; display: block; border-bottom: 1px solid #444; padding-bottom: 2px;">
-                                        ${new Date(p.date).toLocaleDateString()} <br><small>[${methodText}]</small>: <b>${CURRENCY_SYMBOL}${p.amount.toFixed(2)}</b>
-                                    </span>`;
-                        }).join('');
-                }
-
-                const balDisplay = index === 0 ? `${CURRENCY_SYMBOL}${inv.remainingBalance.toFixed(2)}` : '-';
-                
-                row.innerHTML = `
-                    <td>${new Date(inv.createdAt).toLocaleDateString()}</td>
-                    <td>${inv.invoiceId}</td>
-                    <td>${inv.customerName}</td>
-                    <td>${item.name}</td>
-                    <td>${item.originalQuantity || item.quantity}</td>
-                    <td>${CURRENCY_SYMBOL}${item.netAmount.toFixed(2)}</td>
-                    <td>${paymentBreakdownHTML}</td>
-                    <td style="color: ${inv.remainingBalance > 0 ? 'var(--danger-color)' : 'var(--success-color)'}; font-weight: bold;">${balDisplay}</td>
-                `;
-                salesTbody.appendChild(row);
-            });
-        }
     });
-    
+
+    // Sales Table rendering (Sirf naye bills ke liye)
+    strictlyFilteredSales.forEach(inv => {
+        const itemsToDisplay = inv.invoiceItems.map(item => ({
+            ...item,
+            netAmount: (item.quantity || 0) * (item.price || 0)
+        }));
+
+        totalNetSaleValue += itemsToDisplay.reduce((sum, i) => sum + i.netAmount, 0);
+        totalReceivables += inv.remainingBalance;
+
+        itemsToDisplay.forEach((item, index) => {
+            const row = document.createElement('tr');
+            let paymentHTML = '-';
+            if (index === 0) {
+                // Aaj ki payment breakdown
+                paymentHTML = inv.payments.filter(p => {
+                    const pd = new Date(p.date);
+                    return pd >= from && pd <= to && p.amount > 0;
+                }).map(p => `${p.method}: ${CURRENCY_SYMBOL}${p.amount.toFixed(2)}`).join('<br>');
+            }
+
+            row.innerHTML = `
+                <td>${new Date(inv.createdAt).toLocaleDateString()}</td>
+                <td>${inv.invoiceId}</td>
+                <td>${inv.customerName}</td>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>${CURRENCY_SYMBOL}${item.netAmount.toFixed(2)}</td>
+                <td>${paymentHTML || '-'}</td>
+                <td style="font-weight:bold;">${index === 0 ? CURRENCY_SYMBOL + inv.remainingBalance.toFixed(2) : '-'}</td>
+            `;
+            salesTbody.appendChild(row);
+        });
+    });
+
+    // Expenses aur Returns filter karna
     const filteredExpenses = expenses.filter(exp => new Date(exp.date + 'T00:00:00') >= from && new Date(exp.date + 'T00:00:00') <= to);
     const filteredReturns = sellReturnsLog.filter(ret => new Date(ret.date) >= from && new Date(ret.date) <= to);
     
@@ -7604,31 +7583,23 @@ if (isCreatedInRange || hasPaymentInRange) {
     
     const netResult = totalSalesPayments - totalExpensesValue - totalRefundsValue;    
     
+    // UI Update
     document.getElementById('ar-total-sales').textContent = `${CURRENCY_SYMBOL}${totalSalesPayments.toFixed(2)}`;
     document.getElementById('ar-total-expenses').textContent = `${CURRENCY_SYMBOL}${totalExpensesValue.toFixed(2)}`;
     document.getElementById('ar-total-returns').textContent = `${CURRENCY_SYMBOL}${totalRefundsValue.toFixed(2)}`;
     document.getElementById('ar-total-receivables').textContent = `${CURRENCY_SYMBOL}${totalReceivables.toFixed(2)}`;
     document.getElementById('ar-total-payment').textContent = `${CURRENCY_SYMBOL}${totalNetSaleValue.toFixed(2)}`;
-    
-    const plEl = document.getElementById('ar-profit-loss');
-    plEl.textContent = `${CURRENCY_SYMBOL}${netResult.toFixed(2)}`;
-    plEl.className = netResult >= 0 ? 'card-value sales' : 'card-value expenses';
+    document.getElementById('ar-profit-loss').textContent = `${CURRENCY_SYMBOL}${netResult.toFixed(2)}`;
 
-    const expensesTbody = document.getElementById('ar-expenses-tbody'); 
-    expensesTbody.innerHTML = '';
+    // Expense Table
     filteredExpenses.forEach(exp => {
-        const row = document.createElement('tr'); 
-        row.innerHTML = `<td>${new Date(exp.date).toLocaleDateString()}</td><td>${exp.category}</td><td>${exp.description}</td><td>${CURRENCY_SYMBOL}${exp.amount.toFixed(2)}</td>`; 
-        expensesTbody.appendChild(row);
+        expensesTbody.innerHTML += `<tr><td>${new Date(exp.date).toLocaleDateString()}</td><td>${exp.category}</td><td>${exp.description}</td><td>${CURRENCY_SYMBOL}${exp.amount.toFixed(2)}</td></tr>`;
     });
 
-    const returnsTbody = document.getElementById('ar-returns-tbody'); 
-    returnsTbody.innerHTML = '';
+    // Returns Table
     filteredReturns.forEach(ret => {
         ret.creditedItems.forEach(item => {
-             const row = document.createElement('tr'); 
-             row.innerHTML = `<td>${new Date(ret.date).toLocaleDateString()}</td><td>${ret.originalInvoiceId}</td><td>${ret.clientName}</td><td>${item.name}</td><td>${item.quantity}</td><td>${CURRENCY_SYMBOL}${item.subtotal.toFixed(2)}</td>`; 
-             returnsTbody.appendChild(row);
+            returnsTbody.innerHTML += `<tr><td>${new Date(ret.date).toLocaleDateString()}</td><td>${ret.originalInvoiceId}</td><td>${ret.clientName}</td><td>${item.name}</td><td>${item.quantity}</td><td>${CURRENCY_SYMBOL}${item.subtotal.toFixed(2)}</td></tr>`;
         });
     });
 }
