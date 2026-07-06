@@ -7519,10 +7519,19 @@ function renderAllReports() {
     returnsTbody.innerHTML = '';
 
     // LOGIC FIX: Sirf wahi invoices jo strictly is range mein BANI hain (createdAt)
-    const strictlyFilteredSales = partialPaymentInvoices.filter(inv => { 
-        const invDate = new Date(inv.createdAt); 
-        return invDate >= from && invDate <= to;
+    // --- NAYA CODE: Created Date YA Payment Date dono check karega ---
+const strictlyFilteredSales = partialPaymentInvoices.filter(inv => { 
+    const invDate = new Date(inv.createdAt); 
+    
+    // Check karein ke kya is bill ki koi payment is date range mein hui hai?
+    const hasPaymentInDateRange = inv.payments.some(p => {
+        const pDate = new Date(p.date);
+        return pDate >= from && pDate <= to && p.amount > 0;
     });
+
+    // Agar bill aaj bana hai YA payment aaj hui hai, toh dono soorton mein dikhaye
+    return (invDate >= from && invDate <= to) || hasPaymentInDateRange;
+});
 
     let totalSalesPayments = 0; // Total Cash Rcvd today
     let totalNetSaleValue = 0;  // Total Sale value today
@@ -7554,14 +7563,20 @@ function renderAllReports() {
             let paymentHTML = '-';
             if (index === 0) {
                 // Aaj ki payment breakdown
-                paymentHTML = inv.payments.filter(p => {
-                    const pd = new Date(p.date);
-                    return pd >= from && pd <= to && p.amount > 0;
-                }).map(p => `${p.method}: ${CURRENCY_SYMBOL}${p.amount.toFixed(2)}`).join('<br>');
+                // --- NAYA CODE: Tareekh aur Format ke sath ---
+paymentHTML = inv.payments.filter(p => {
+    const pd = new Date(p.date);
+    // Sirf wahi payments uthaye ga jo filter ki gayi date range mein hain
+    return pd >= from && pd <= to && p.amount > 0 && p.method !== 'Maal Wapsi (Return)';
+}).map(p => {
+    // Tareekh ko DD/MM/YYYY format mein lane ke liye
+    const pDate = new Date(p.date).toLocaleDateString('en-GB'); 
+    return `${pDate}<br>[${p.method}]: ${CURRENCY_SYMBOL}${p.amount.toFixed(2)}`;
+}).join('<br><div style="margin-top:5px; border-top:1px solid #444;"></div>');
             }
 
             row.innerHTML = `
-                <td>${new Date(inv.createdAt).toLocaleDateString()}</td>
+<td>${from.toLocaleDateString('en-GB')}</td>
                 <td>${inv.invoiceId}</td>
                 <td>${inv.customerName}</td>
                 <td>${item.name}</td>
