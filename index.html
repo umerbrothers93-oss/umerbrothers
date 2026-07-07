@@ -3985,9 +3985,16 @@ function renderPartialInvoiceCart() {
     totalElement.textContent = `${CURRENCY_SYMBOL}${totalAmount.toFixed(2)}`;
 }
 
-function addPartialPaymentInvoice() {
+async function addPartialPaymentInvoice() {
+    // 1. Double click rokne ke liye button disable karein
+    const btn = document.getElementById('btn-add-partial-invoice');
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
     if (editingInvoiceId) {
-        saveSaleInvoiceChanges();
+        await saveSaleInvoiceChanges();
+        btn.disabled = false;
+        btn.innerText = "Create Invoice";
         return;
     }
 
@@ -3995,6 +4002,8 @@ function addPartialPaymentInvoice() {
 
     if (partialInvoiceCart.length === 0) {
         alert("Please add products to the invoice first.");
+        btn.disabled = false;
+        btn.innerText = "Create Invoice";
         return;
     }
     
@@ -4010,11 +4019,15 @@ function addPartialPaymentInvoice() {
 
         if (!customerName || !customerPhone) {
             alert("Please enter customer details (Name and Phone) for a credit sale.");
+            btn.disabled = false;
+            btn.innerText = "Create Invoice";
             return;
         }
 
         if (advancePayment > totalAmount) {
             alert("Advance payment cannot be greater than the total amount.");
+            btn.disabled = false;
+            btn.innerText = "Create Invoice";
             return;
         }
     } else { 
@@ -4024,6 +4037,13 @@ function addPartialPaymentInvoice() {
         numInstallments = 0;
     }
 
+    // 2. Latest settings mangwayein taake invoice number duplicate na ho
+    await loadUserSettingsOnline(); 
+
+    const newInvoiceId = appSettings.nextInvoiceNumber;
+    appSettings.nextInvoiceNumber++;
+    await saveSettings(); // 3. Number update hone ka intezar karein
+
     partialInvoiceCart.forEach(cartItem => {
         const product = products.find(p => p.id === cartItem.id);
         if (product) {
@@ -4032,10 +4052,6 @@ function addPartialPaymentInvoice() {
     });
     saveProducts();
 
-    const newInvoiceId = appSettings.nextInvoiceNumber;
-    appSettings.nextInvoiceNumber++;
-    saveSettings(); 
-
     const invoiceItemsWithCost = partialInvoiceCart.map(item => ({
         ...item,
         originalQuantity: item.quantity, 
@@ -4043,26 +4059,26 @@ function addPartialPaymentInvoice() {
     }));
 
     const newInvoice = {
-    invoiceId: newInvoiceId, 
-    customerName: customerName,
-    customerPhone: customerPhone,
-    totalAmount: totalAmount,
-    paidAmount: advancePayment,
-    remainingBalance: totalAmount - advancePayment,
-    status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
-    installments: numInstallments,
-    payments: advancePayment > 0 ?[{ 
-        paymentId: 'pay' + Date.now(), 
-        amount: advancePayment, 
-date: getLocalDateString() + 'T12:00:00.000Z', 
+        invoiceId: newInvoiceId, 
+        customerName: customerName,
+        customerPhone: customerPhone,
+        totalAmount: totalAmount,
+        paidAmount: advancePayment,
+        remainingBalance: totalAmount - advancePayment,
+        status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
+        installments: numInstallments,
+        payments: advancePayment > 0 ? [{ 
+            paymentId: 'pay' + Date.now(), 
+            amount: advancePayment, 
+            date: getLocalDateString() + 'T12:00:00.000Z', 
+            method: paymentMethod, 
+            accountDetails: accountDetails,
+            notes: "Initial Payment" 
+        }] : [],
+        createdAt: getLocalDateString() + 'T12:00:00.000Z',
+        invoiceItems: invoiceItemsWithCost 
+    };
 
-        method: paymentMethod, 
-        accountDetails: accountDetails,
-        notes: "Initial Payment" 
-    }] :[],
-createdAt: getLocalDateString() + 'T12:00:00.000Z',
-    invoiceItems: invoiceItemsWithCost 
-};
     partialPaymentInvoices.push(newInvoice);
     savePartialPaymentInvoices();
 
@@ -4074,6 +4090,10 @@ createdAt: getLocalDateString() + 'T12:00:00.000Z',
     renderPartialPaymentTable();
     clearPartialPaymentForm();
     refreshAll(); 
+
+    // Button wapas enable karein
+    btn.disabled = false;
+    btn.innerText = "Create Invoice";
 
     if (currentPaymentMode === 'credit') {
         alert(`New Invoice created for ${customerName} and PDF has been generated. Remaining balance: ${CURRENCY_SYMBOL}${newInvoice.remainingBalance.toFixed(2)}.`);
