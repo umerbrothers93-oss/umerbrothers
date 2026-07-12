@@ -7517,7 +7517,8 @@ function renderAllReports() {
         const createdInRange = invDate >= from && invDate <= to;
         const hasPaymentInRange = inv.payments.some(p => {
             const pDate = new Date(p.date);
-            return pDate >= from && pDate <= to;
+            // Sirf actual received payments (amount > 0) ko count karein, returns ko nahi
+            return pDate >= from && pDate <= to && p.amount > 0;
         });
         return createdInRange || hasPaymentInRange; 
     });
@@ -7559,9 +7560,10 @@ function renderAllReports() {
         const isCreatedInRange = invDate >= from && invDate <= to;
         
         // Sirf wo payments filter karein jo selected date range mein aayi hain
+        // Sirf wo payments filter karein jo selected date range mein aayi hain aur amount > 0 ho (Return ko skip karein)
         const paymentsInRange = inv.payments.filter(p => {
             const pDate = new Date(p.date);
-            return pDate >= from && pDate <= to;
+            return pDate >= from && pDate <= to && p.amount > 0;
         });
         const hasPaymentInRange = paymentsInRange.length > 0;
 
@@ -7573,14 +7575,13 @@ function renderAllReports() {
                             
                     let paymentBreakdownHTML = '-';
                     if (index === 0) {
-                        paymentBreakdownHTML = paymentsInRange // Sirf isi din wali payments dikhayen
+                        paymentBreakdownHTML = inv.payments 
                             .filter(p => p.amount >= 0)
                             .map(p => {
                                 let methodText = p.method || 'Cash';
-                                return `<span style="font-size: 0.85rem; display: block; border-bottom: 1px solid #444; padding-bottom: 2px;">
-                                            ${new Date(p.date).toLocaleDateString()} <br><small>[${methodText}]</small>: <b>${CURRENCY_SYMBOL}${p.amount.toFixed(2)}</b>
-                                        </span>`;
-                            }).join('');
+                                // <br> ka istemal PDF mein new line banayega
+                                return `${new Date(p.date).toLocaleDateString()} [${methodText}]: ${CURRENCY_SYMBOL}${p.amount.toFixed(2)}`;
+                            }).join('<br>');
                     }
 
                     const balDisplay = index === 0 ? `${CURRENCY_SYMBOL}${inv.remainingBalance.toFixed(2)}` : '-';
@@ -7597,25 +7598,30 @@ function renderAllReports() {
                     `;
                     salesTbody.appendChild(row);
                 });
-            } else if (hasPaymentInRange) {
-                // Case 2: Agar sale purani hai (e.g. 10th) aur sirf payment aaj (11th) aayi hai (Recovery)
+           } else if (hasPaymentInRange) {
+                // Case 2: Agar sale purani hai aur payment aaj aayi hai (Recovery)
                 const row = document.createElement('tr');
                 
-                let paymentBreakdownHTML = paymentsInRange
+                // 1. Purani tareekh (Original Date) nikalna
+                let originalDate = new Date(inv.createdAt).toLocaleDateString();
+                
+                // 2. Asal Product ka naam
+                let actualProductNames = inv.invoiceItems.map(item => item.name).join(', ');
+
+                // 3. Pura payment record saaf (clean) lines mein dikhana
+                let paymentBreakdownHTML = inv.payments
                     .filter(p => p.amount > 0) // Sirf jo received amount hai wo dikhaye
                     .map(p => {
                         let methodText = p.method || 'Cash';
-                        return `<span style="font-size: 0.85rem; display: block; border-bottom: 1px solid #444; padding-bottom: 2px;">
-                                    ${new Date(p.date).toLocaleDateString()} <br><small>[${methodText}]</small>: <b>${CURRENCY_SYMBOL}${p.amount.toFixed(2)}</b>
-                                </span>`;
-                    }).join('');
+                        return `${new Date(p.date).toLocaleDateString()} [${methodText}]: ${CURRENCY_SYMBOL}${p.amount.toFixed(2)}`;
+                    }).join('<br>');
 
-                // Product Name ki jagah "Old Balance Received" likha aayega aur amounts mein dash (-) lag jayega
+                // Product Name ki jagah ab Original Date bhi aayegi: "Old Balance of DD/MM/YYYY"
                 row.innerHTML = `
-                    <td>${new Date(inv.createdAt).toLocaleDateString()}</td>
+                    <td>${originalDate}</td>
                     <td>${inv.invoiceId}</td>
                     <td>${inv.customerName}</td>
-                    <td><span style="color:var(--info-color); font-style:italic;">Old Balance Received</span></td>
+                    <td><span style="color:var(--info-color); font-weight:bold;">${actualProductNames} <br><small style="color:var(--text-color);">(Old Balance of ${originalDate})</small></span></td>
                     <td>-</td>
                     <td>-</td>
                     <td>${paymentBreakdownHTML}</td>
