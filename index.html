@@ -3393,29 +3393,16 @@ async function dbFetchExpenses() { expenses = await dbFetchData(EXPENSES_KEY); }
 async function dbFetchPurchasers() { purchasers = await dbFetchData(PURCHASERS_KEY); }
 async function dbFetchPurchaseLog() { purchaseLog = await dbFetchData(PURCHASE_LOG_KEY); }
 async function dbFetchCashBook() { 
-    // Cloud se data mangwayein
+    // Sirf Cloud (Firebase) se data mangwayein. Agar wahan nahi hai toh list khali samjhi jayegi.
     const cloudData = await dbFetchData(CASH_BOOK_KEY); 
     
-    // Local memory se data mangwayein
-    const localData = JSON.parse(localStorage.getItem(getUserSpecificKey(CASH_BOOK_KEY))) || [];
-    
-    // Dono ko aapas mein Merge karein taake koi offline entry delete na ho
-    const combinedMap = new Map();
-    
-    // Pehle cloud ka data daalein
     if(Array.isArray(cloudData)) {
-        cloudData.forEach(item => combinedMap.set(item.id, item));
+        cashBookLog = cloudData; // Firebase ka data direct set karein
+    } else {
+        cashBookLog = []; // Firebase khali hai toh ise bhi khali kar dein
     }
     
-    // Phir local data daalein (agar koi entry cloud par nahi hai to wo yahan se add ho jayegi)
-    if(Array.isArray(localData)) {
-        localData.forEach(item => combinedMap.set(item.id, item));
-    }
-    
-    // Combine kiya hua data cashBookLog mein set kar dein
-    cashBookLog = Array.from(combinedMap.values());
-    
-    // Dono jagah updated data save kar dein
+    // Ab browser ki local storage ko Firebase ke mutabiq update (overwrite) kar dein
     localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify(cashBookLog));
 }
 async function dbFetchGatePasses() { gatePassLog = await dbFetchData(GATE_PASS_LOG_KEY); }
