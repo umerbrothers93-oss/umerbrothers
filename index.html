@@ -938,11 +938,18 @@ body,
     </style>
 </head>
 <body>
+    <!-- CLOUD FEE LOCK SCREEN -->
+<div id="lock-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-color); z-index:999999; flex-direction:column; justify-content:center; align-items:center; color:white; text-align:center;">
+    <h1 style="color: var(--danger-color); font-size: 3.5rem; margin-bottom: 10px;">Software Locked</h1>
+    <h2 style="color: var(--text-light); margin-bottom: 20px;">Please pay cloud fees to continue.</h2>
+    <p style="color: var(--text-color); font-size: 1.2rem;">"Your software subscription has expired. Please contact the developer to reactivate the service."
+</p>
+</div>
 
     <div id="auth-container">
         <div class="auth-box">
             <div id="login-form">
-    <h1>Umer Brothers</h1>
+    <h1>Umer Brothers </h1>
     <div class="form-group"><label for="username">Email:</label><input type="text" id="username" class="form-control"></div>
     <div class="form-group"><label for="password">Password:</label><input type="password" id="password" class="form-control"></div>
     
@@ -3034,16 +3041,17 @@ function getLocalDateString(dateInput = getCloudDate()) {
 
 
 
-    // --- FIREBASE CONFIGURATION ---
-// --- FIREBASE CONFIGURATION (NEW) ---
 const firebaseConfig = {
   apiKey: "AIzaSyD77GQbI_Pqw_OkHkrtrTRyqWd31wVY0lw",
   authDomain: "umerbrothers-2ee8e.firebaseapp.com",
   projectId: "umerbrothers-2ee8e",
-  storageBucket: "umerbrothers-2ee8e.appspot.com",
-  messagingSenderId: "67249114389",
-  appId: "1:67249114389:web:6e6f66304417f73a5568f6"
+  storageBucket: "umerbrothers-2ee8e.firebasestorage.app",
+  messagingSenderId: "26499854625",
+  appId: "1:26499854625:web:3fab5879af5918716f8e60",
+  measurementId: "G-R23T66XT2E"
 };
+
+
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
@@ -8847,6 +8855,13 @@ async function initializeApp() {
     // 2. Direct online settings load karein
     await loadUserSettingsOnline();
 
+    // ==========================================
+    // YAHAN NAYA CHECK ADD KIYA GAYA HAI
+    // ==========================================
+    const isSoftwareActive = checkCloudFeeStatus();
+    if (!isSoftwareActive) return; // Agar time khatam ho gaya to code aage nahi chalega, lock screen aa jayegi.
+    // ==========================================
+
     // 3. Admin permissions set karein
     if (!appSettings.permissions) {
         appSettings.permissions = {
@@ -8856,6 +8871,8 @@ async function initializeApp() {
         await saveSettings();
     }
 
+
+    
     if (loggedInUser.role !== 'admin') {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
     }
@@ -8964,8 +8981,8 @@ async function initializeApp() {
     togglePaymentMode('cash');
     initializeProductStockReport();
 
-    // 6. Trial Validity check dhoondh kar chalaein
-    isTrialValid();
+    // 6. Trial Validity check dhoondh kar chalaein (Isko band kar diya taake Naya Cloud System show ho)
+    // isTrialValid(); 
 
     updateUserNav();
     
@@ -8981,6 +8998,9 @@ await dbFetchStockUpdates();
 await dbFetchSellReturns();
 refreshAll();
 }
+
+
+
 
 function toggleSubMenu(elementId) {
     const navItem = document.getElementById(elementId);
@@ -9907,7 +9927,45 @@ function deleteCashBookTransaction(id) {
 }
 
 
+// ==========================================
+// CLOUD FEE SUBSCRIPTION LOCK SYSTEM (HARDCODED)
+// ==========================================
 
+// YAHAN AAPNE EXPIRY DATE SET KARNI HAI (YYYY-MM-DD format mein)
+// Misal ke taur par: Agle saal ki date dal dein. Agar 1 din dena hai to kal ki date dal dein.
+const CLOUD_FEE_EXPIRY_DATE = "2027-03-14T23:59:59"; 
+
+function checkCloudFeeStatus() {
+    const expiryDate = new Date(CLOUD_FEE_EXPIRY_DATE);
+    const now = getCloudDate(); // Real cloud time taake PC time change karne se cheat na ho sake
+    
+    const timeDiff = expiryDate - now;
+    const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+    
+    const statusMsg = document.getElementById('trial-status-message');
+
+    // Agar date guzar chuki hai (Software Lock)
+    if (now > expiryDate) {
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('main-app').style.display = 'none';
+        document.getElementById('lock-screen').style.display = 'flex';
+        return false; // Lock lag gaya
+    } 
+    // Agar time baqi hai (Show remaining Months / Days)
+    else {
+        if (statusMsg) {
+            if (daysRemaining > 30) {
+                // Agar 30 din se zyada hain toh mahine (months) show karega
+                const monthsRemaining = Math.floor(daysRemaining / 30);
+                statusMsg.innerHTML = `☁️ <span style="color:#14b8a6; font-weight:bold;">Cloud Active: ${monthsRemaining} Month(s) left</span>`;
+            } else {
+                // Agar 30 din ya us se kam reh gaye hain toh din (days) show karega red color mein
+                statusMsg.innerHTML = `⚠️ <span style="color:#ef4444; font-weight:bold;">Cloud Fee Due in ${daysRemaining} Day(s)!</span>`;
+            }
+        }
+        return true; // Software chalne do
+    }
+}
 
 </script>
 
