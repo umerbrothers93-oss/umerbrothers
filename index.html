@@ -3611,13 +3611,13 @@ function handleNewProductImageUpload(event) {
         preview.style.display = 'none';
         return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        currentImageBase64 = e.target.result;
-        preview.src = currentImageBase64;
+
+    // Image ko select karte hi automatic 200x200 pixel par compress karein
+    compressAndResizeImage(file, 200, 200, 0.7, (compressedBase64) => {
+        currentImageBase64 = compressedBase64;
+        preview.src = compressedBase64;
         preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
+    });
 }
 
 function addManagedProduct() {
@@ -7987,7 +7987,13 @@ function handleLogout() {
     }
     sessionStorage.removeItem('active_user_session');
     loggedInUser = null; 
-    location.reload(); 
+    
+    // Firebase Auth se bhi user ko safe logout karein
+    auth.signOut().then(() => {
+        location.reload(); 
+    }).catch(() => {
+        location.reload();
+    });
 }
 
 function createSession(userId) { 
@@ -8119,16 +8125,16 @@ function saveAppSettings() {
 
 function handleLogoUpload(event) {
     const file = event.target.files[0];
+    const preview = document.getElementById('logo-preview');
     if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            appSettings.logoBase64 = e.target.result;
-            document.getElementById('logo-preview').src = e.target.result;
-        };
-        reader.readAsDataURL(file);
+        // Logo ko bhi 150x150 pixel par compress karein
+        compressAndResizeImage(file, 150, 150, 0.7, (compressedBase64) => {
+            appSettings.logoBase64 = compressedBase64;
+            preview.src = compressedBase64;
+        });
     } else {
         appSettings.logoBase64 = null;
-        document.getElementById('logo-preview').src = IMG_PLACEHOLDER;
+        preview.src = IMG_PLACEHOLDER;
     }
 }
 
@@ -8835,14 +8841,31 @@ function updateUserNav() {
 document.addEventListener('DOMContentLoaded', () => {
     loadGlobalData();
 
-    if (checkActiveSession()) {
-        document.getElementById('auth-container').style.display = 'none';
-        document.getElementById('main-app').style.display = 'flex';
-        initializeApp(); 
-    } else {
-        document.getElementById('login-button').addEventListener('click', handleLogin);
-        document.getElementById('register-button').addEventListener('click', handleRegistration);
-    }
+    // Firebase Auth State Listener taake authentication process mukammal hone ka wait kiya ja sake
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            // Firebase SDK successfully backend par login ho chuka hai
+            loggedInUser = { id: user.uid, ...JSON.parse(sessionStorage.getItem('active_user_session') || '{}') };
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            initializeApp(); 
+        } else {
+            // Agar Firebase par login session active nahi hai ya expire ho chuka hai
+            sessionStorage.removeItem('active_user_session');
+            document.getElementById('auth-container').style.display = 'flex';
+            document.getElementById('main-app').style.display = 'none';
+            
+            // Event listeners re-bind karein
+            const loginBtn = document.getElementById('login-button');
+            const registerBtn = document.getElementById('register-button');
+            if (loginBtn) {
+                loginBtn.onclick = handleLogin;
+            }
+            if (registerBtn) {
+                registerBtn.onclick = handleRegistration;
+            }
+        }
+    });
 });
 
 document.getElementById('reset-password-button').addEventListener('click', handlePasswordUpdateAndLogin);
@@ -9966,6 +9989,45 @@ function checkCloudFeeStatus() {
         return true; // Software chalne do
     }
 }
+
+// Image ko compress aur resize karne wala helper function
+function compressAndResizeImage(file, maxWidth, maxHeight, quality, callback) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            let width = img.width;
+            let height = img.height;
+
+            // Dimensions ratio barkrar rakhte hue resize karein
+            if (width > height) {
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width *= maxHeight / height;
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Image ko JPEG format aur kam size quality (0.7) par compress karein
+            const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+            callback(compressedBase64);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 
 </script>
 
