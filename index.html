@@ -3602,9 +3602,10 @@ document.getElementById('dashboard-total-sales').textContent = `${CURRENCY_SYMBO
 // --- END NEW DASHBOARD FUNCTIONS ---
 
 // --- MANAGE PRODUCTS FUNCTIONS (WITH AUTOMATIC COST PRICE) ---
-function handleNewProductImageUpload(event) {
+async function handleNewProductImageUpload(event) {
     const file = event.target.files[0];
     const preview = document.getElementById('new-product-preview');
+    
     if (!file) {
         currentImageBase64 = null;
         preview.src = '';
@@ -3612,12 +3613,39 @@ function handleNewProductImageUpload(event) {
         return;
     }
 
-    // Image ko select karte hi automatic 200x200 pixel par compress karein
-    compressAndResizeImage(file, 200, 200, 0.7, (compressedBase64) => {
-        currentImageBase64 = compressedBase64;
-        preview.src = compressedBase64;
+    // --- CLOUDINARY SETTINGS ---
+    const cloudName = 'zwuinsyb';        // Aapka Cloud Name
+    const uploadPreset = 'fjm_images';   // Aapka Upload Preset
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+
+    try {
+        // Upload hone tak loading GIF dikhayein
         preview.style.display = 'block';
-    });
+        preview.src = 'https://i.gifer.com/ZKZg.gif'; 
+
+        // Cloudinary par image bhej rahe hain
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        
+        if (data.secure_url) {
+            currentImageBase64 = data.secure_url; // Link Firebase ke liye save ho gaya
+            preview.src = currentImageBase64;
+        } else {
+            alert("Image upload fail ho gayi: " + (data.error ? data.error.message : "Unknown error"));
+            preview.style.display = 'none';
+        }
+    } catch (error) {
+        console.error("Cloudinary Upload Error:", error);
+        alert("Internet connection ya Cloudinary mein masla aaya!");
+        preview.style.display = 'none';
+    }
 }
 
 function addManagedProduct() {
@@ -8123,17 +8151,44 @@ function saveAppSettings() {
     refreshAll(); 
 }
 
-function handleLogoUpload(event) {
+async function handleLogoUpload(event) {
     const file = event.target.files[0];
     const preview = document.getElementById('logo-preview');
-    if (file) {
-        // Logo ko bhi 150x150 pixel par compress karein
-        compressAndResizeImage(file, 150, 150, 0.7, (compressedBase64) => {
-            appSettings.logoBase64 = compressedBase64;
-            preview.src = compressedBase64;
-        });
-    } else {
+    
+    if (!file) {
         appSettings.logoBase64 = null;
+        preview.src = IMG_PLACEHOLDER;
+        return;
+    }
+
+    // --- CLOUDINARY SETTINGS ---
+    const cloudName = 'zwuinsyb';        // Aapka Cloud Name
+    const uploadPreset = 'fjm_images';   // Aapka Upload Preset
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+
+    try {
+        preview.src = 'https://i.gifer.com/ZKZg.gif'; // Loading GIF
+
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        
+        if (data.secure_url) {
+            appSettings.logoBase64 = data.secure_url; // Link Firebase ke liye save ho gaya
+            preview.src = appSettings.logoBase64;
+        } else {
+            alert("Logo upload fail ho gaya.");
+            preview.src = IMG_PLACEHOLDER;
+        }
+    } catch (error) {
+        console.error("Cloudinary Upload Error:", error);
+        alert("Upload fail ho gaya!");
         preview.src = IMG_PLACEHOLDER;
     }
 }
@@ -9010,17 +9065,22 @@ async function initializeApp() {
     updateUserNav();
     
    // 7. Dashboard aur tamam logs ka data seedha Firebase se load karein (Data loss se bachne ke liye)
-await dbFetchInvoices();
-await dbFetchExpenses();
-await dbFetchPurchaseLog();
-await dbFetchProducts();
-await dbFetchPurchasers();
-await dbFetchCashBook();
-await dbFetchGatePasses();
-await dbFetchStockUpdates();
-await dbFetchSellReturns();
-refreshAll();
+// 7. Dashboard aur tamam logs ka data seedha Firebase se load karein (Data loss se bachne ke liye)
+    await dbFetchInvoices();
+    await dbFetchExpenses();
+    await dbFetchPurchaseLog();
+    await dbFetchProducts();
+    await dbFetchPurchasers();
+    await dbFetchCashBook();
+    await dbFetchGatePasses();
+    await dbFetchStockUpdates();
+    await dbFetchSellReturns();
+    
+    sanitizeHeavyImages(); // <--- YAHAN AUTO-CLEANER KO CALL KAREIN
+    
+    refreshAll();
 }
+
 
 
 
@@ -9060,6 +9120,7 @@ async function openModule(evt, moduleName) {
             await dbFetchProducts();
             await dbFetchPurchasers();
             renderDashboard();
+
         }
         if (moduleName === 'Products') {
             await dbFetchProducts();
@@ -9094,6 +9155,7 @@ if (moduleName === 'SellReturn') {
     await dbFetchProducts();
     await dbFetchInvoices();
     await dbFetchSellReturns();
+    
     
     // Sirf tab reset karein agar humne POS se return shuru NAHI kiya
     if (!selectedInvoiceForReturn) {
@@ -10028,6 +10090,124 @@ function compressAndResizeImage(file, maxWidth, maxHeight, quality, callback) {
     reader.readAsDataURL(file);
 }
 
+// 1. Cloudinary Upload Function (Image Cloudinary par bhej kar link hasil karega)
+async function uploadToCloudinary(file) {
+    const cloudName = "zwuinsyb";
+    const uploadPreset = "fjm_images"; // <--- Ab ye theek ho gaya hai!
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", uploadPreset);
+
+    try {
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: "POST",
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error("Cloudinary upload failed");
+        }
+
+        const data = await response.json();
+        return data.secure_url; // Cloudinary image ka link return karega
+    } catch (error) {
+        console.error("Cloudinary Upload Error:", error);
+        throw error;
+    }
+}
+
+// 2. Image Upload Handling (Image select hote hi Cloudinary bhej kar URL variable mein rakhega)
+async function handleNewProductImageUpload(event) {
+    const file = event.target.files[0];
+    const preview = document.getElementById('new-product-preview');
+
+    if (!file) {
+        currentImageBase64 = null;
+        preview.src = '';
+        preview.style.display = 'none';
+        return;
+    }
+
+    try {
+        preview.style.display = 'block';
+        // Uploading ke douran loading GIF show karega
+        preview.src = 'https://i.gifer.com/ZKZg.gif'; 
+
+        // Step A: Image Cloudinary par bhej kar URL hasil karna
+        const imageUrl = await uploadToCloudinary(file);
+
+        // Step B: Link ko variable mein mehfooz karna
+        currentImageBase64 = imageUrl; 
+        preview.src = imageUrl;
+    } catch (error) {
+        alert("Image Cloudinary par upload nahi ho saki. Internet connection check karein.");
+        preview.style.display = 'none';
+    }
+}
+
+// 3. Product Add Function (Cloudinary Link ko Firebase par save karna)
+function addManagedProduct() {
+    const name = document.getElementById('new-product-name').value.trim();
+    const price = parseFloat(document.getElementById('new-product-price').value);
+    const costPrice = parseFloat(document.getElementById('new-product-cost-price').value) || 0;
+    const lowStockThreshold = parseInt(document.getElementById('new-product-low-stock').value) || 5;
+
+    if (!name || isNaN(price) || price < 0) {
+        alert("Product name and a valid selling price are required.");
+        return;
+    }
+
+    // New product object jisme Cloudinary image URL jaye ga
+    const newProduct = {
+        id: 'p' + Date.now(),
+        name: name,
+        image_path: currentImageBase64, // Cloudinary URL
+        price: price,
+        costPrice: costPrice,
+        quantity: 0,
+        category: 'Uncategorized',
+        lowStockThreshold: lowStockThreshold
+    };
+
+    products.push(newProduct);
+
+    // SaveProducts function Firebase Firestore par data upload kar deta hai
+    saveProducts();
+
+    alert("Product and Cloudinary image link saved to Firebase successfully!");
+    resetManagedProductForm();
+    renderManageProductsList();
+    populatePurchaseProductSelect();
+}
+
+
+// Purani heavy Base64 images ko database se saaf karne ka function
+function sanitizeHeavyImages() {
+    let updated = false;
+    
+    // 1. Products mein se heavy base64 images saaf karein
+    if (Array.isArray(products)) {
+        products.forEach(p => {
+            if (p.image_path && p.image_path.startsWith('data:image')) {
+                p.image_path = null; // Base64 image ko delete kar ke link khali kar dein
+                updated = true;
+            }
+        });
+    }
+    
+    // 2. Settings Logo mein se bhi heavy base64 saaf karein (agar wahan bhi ho)
+    if (appSettings && appSettings.logoBase64 && appSettings.logoBase64.startsWith('data:image')) {
+        appSettings.logoBase64 = null;
+        updated = true;
+        saveSettings();
+    }
+
+    if (updated) {
+        saveProducts();
+        console.log("Database successfully cleaned from heavy Base64 images!");
+    }
+}
 
 </script>
 
