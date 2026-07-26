@@ -2432,7 +2432,7 @@ body,
                     <div class="manage-form">
                         <h3 class="panel-title" style="font-size: 1.2rem;">Invoice Details</h3>
                         <div class="form-grid">
-                            <label for="setting-res-name">Restaurant Name:</label><input type="text" id="setting-res-name" class="form-control" style="grid-column: 2 / 5;">
+                            <label for="setting-res-name">Company Name:</label><input type="text" id="setting-res-name" class="form-control" style="grid-column: 2 / 5;">
                             <label for="setting-res-address">Phone Number:</label><input type="text" id="setting-res-phone" class="form-control" style="grid-column: 2 / 5;">
                             <label for="setting-res-address">Address:</label><input type="text" id="setting-res-address" class="form-control" style="grid-column: 2 / 5;">
                             <label for="setting-res-note">Invoice Note:</label><input type="text" id="setting-res-note" class="form-control" placeholder="e.g., Thank you for your visit!" style="grid-column: 2 / 5;">
@@ -3165,11 +3165,12 @@ async function loadUserSettingsOnline() {
     }
     
     // Default Settings agar empty hon
-    appSettings = appSettings || {};
-    appSettings.restaurantName = appSettings.restaurantName || "FJM Social Media";
-    appSettings.restaurantAddress = appSettings.restaurantAddress || "123 Main Street, Your City";
-    appSettings.restaurantPhone = appSettings.restaurantPhone || "+92 123 4567890";
-    appSettings.invoiceNote = appSettings.invoiceNote || "Thank you for your purchase!";
+    // Default Settings sirf pehli baar ke liye (agar bilkul na hon)
+appSettings = appSettings || {};
+if (appSettings.restaurantName === undefined) appSettings.restaurantName = "FJM Social Media";
+if (appSettings.restaurantAddress === undefined) appSettings.restaurantAddress = "123 Main Street, Your City";
+if (appSettings.restaurantPhone === undefined) appSettings.restaurantPhone = "+92 123 4567890";
+if (appSettings.invoiceNote === undefined) appSettings.invoiceNote = "Thank you for your purchase!";
     appSettings.discountPercent = appSettings.discountPercent ?? 10;
     appSettings.taxPercent = appSettings.taxPercent ?? 5;
     appSettings.enableDiscount = appSettings.enableDiscount ?? true;
@@ -3188,6 +3189,10 @@ async function loadUserSettingsOnline() {
 
 async function saveData(key, data) {
     try {
+        // 1. Pehle LocalStorage me save karein taake offline / refresh par data na badle
+        localStorage.setItem(key, JSON.stringify(data));
+
+        // 2. Phir Firebase Cloud par permanent save karein
         if (loggedInUser && (loggedInUser.id || loggedInUser.uid)) {
             let userId = loggedInUser.id || loggedInUser.uid;
             await db.collection('appData').doc(userId).collection('datasets').doc(key).set({ 
@@ -3196,10 +3201,8 @@ async function saveData(key, data) {
         }
     } catch (e) {
         console.error("Error saving data to Firebase Cloud:", e);
-        alert("Network Error: Data cloud par save nahi ho saka.");
     }
 }
-
 
 
 // Firebase se user ka data download karke browser ki local storage mein daalne ka function
@@ -8135,19 +8138,20 @@ function populateSettingsForm() {
     document.getElementById('setting-invoice-start-number').value = appSettings.nextInvoiceNumber;
 }
 
-function saveAppSettings() {
+async function saveAppSettings() {
     appSettings.restaurantName = document.getElementById('setting-res-name').value.trim();
     appSettings.restaurantAddress = document.getElementById('setting-res-address').value.trim();
     appSettings.restaurantPhone = document.getElementById('setting-res-phone').value.trim();
     appSettings.invoiceNote = document.getElementById('setting-res-note').value.trim();
-    appSettings.discountPercent = parseFloat(document.getElementById('setting-discount-percent').value);
-    appSettings.taxPercent = parseFloat(document.getElementById('setting-tax-percent').value);
+    appSettings.discountPercent = parseFloat(document.getElementById('setting-discount-percent').value) || 0;
+    appSettings.taxPercent = parseFloat(document.getElementById('setting-tax-percent').value) || 0;
     appSettings.enableDiscount = document.getElementById('setting-enable-discount').checked;
     appSettings.enableTax = document.getElementById('setting-enable-tax').checked;
     appSettings.nextInvoiceNumber = parseInt(document.getElementById('setting-invoice-start-number').value) || 100;
 
-    saveSettings();
+    await saveSettings(); // Settings save hone tak wait karega
     alert("Settings saved successfully!");
+    populateSettingsForm(); // Form me naya data wapas load karega
     refreshAll(); 
 }
 
@@ -10088,97 +10092,6 @@ function compressAndResizeImage(file, maxWidth, maxHeight, quality, callback) {
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);
-}
-
-// 1. Cloudinary Upload Function (Image Cloudinary par bhej kar link hasil karega)
-async function uploadToCloudinary(file) {
-    const cloudName = "zwuinsyb";
-    const uploadPreset = "fjm_images"; // <--- Ab ye theek ho gaya hai!
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", uploadPreset);
-
-    try {
-        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-            method: "POST",
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error("Cloudinary upload failed");
-        }
-
-        const data = await response.json();
-        return data.secure_url; // Cloudinary image ka link return karega
-    } catch (error) {
-        console.error("Cloudinary Upload Error:", error);
-        throw error;
-    }
-}
-
-// 2. Image Upload Handling (Image select hote hi Cloudinary bhej kar URL variable mein rakhega)
-async function handleNewProductImageUpload(event) {
-    const file = event.target.files[0];
-    const preview = document.getElementById('new-product-preview');
-
-    if (!file) {
-        currentImageBase64 = null;
-        preview.src = '';
-        preview.style.display = 'none';
-        return;
-    }
-
-    try {
-        preview.style.display = 'block';
-        // Uploading ke douran loading GIF show karega
-        preview.src = 'https://i.gifer.com/ZKZg.gif'; 
-
-        // Step A: Image Cloudinary par bhej kar URL hasil karna
-        const imageUrl = await uploadToCloudinary(file);
-
-        // Step B: Link ko variable mein mehfooz karna
-        currentImageBase64 = imageUrl; 
-        preview.src = imageUrl;
-    } catch (error) {
-        alert("Image Cloudinary par upload nahi ho saki. Internet connection check karein.");
-        preview.style.display = 'none';
-    }
-}
-
-// 3. Product Add Function (Cloudinary Link ko Firebase par save karna)
-function addManagedProduct() {
-    const name = document.getElementById('new-product-name').value.trim();
-    const price = parseFloat(document.getElementById('new-product-price').value);
-    const costPrice = parseFloat(document.getElementById('new-product-cost-price').value) || 0;
-    const lowStockThreshold = parseInt(document.getElementById('new-product-low-stock').value) || 5;
-
-    if (!name || isNaN(price) || price < 0) {
-        alert("Product name and a valid selling price are required.");
-        return;
-    }
-
-    // New product object jisme Cloudinary image URL jaye ga
-    const newProduct = {
-        id: 'p' + Date.now(),
-        name: name,
-        image_path: currentImageBase64, // Cloudinary URL
-        price: price,
-        costPrice: costPrice,
-        quantity: 0,
-        category: 'Uncategorized',
-        lowStockThreshold: lowStockThreshold
-    };
-
-    products.push(newProduct);
-
-    // SaveProducts function Firebase Firestore par data upload kar deta hai
-    saveProducts();
-
-    alert("Product and Cloudinary image link saved to Firebase successfully!");
-    resetManagedProductForm();
-    renderManageProductsList();
-    populatePurchaseProductSelect();
 }
 
 
