@@ -935,6 +935,8 @@ body,
 }
 
 
+
+
     </style>
 </head>
 <body>
@@ -2433,7 +2435,7 @@ body,
                         <h3 class="panel-title" style="font-size: 1.2rem;">Invoice Details</h3>
                         <div class="form-grid">
                             <label for="setting-res-name">Company Name:</label><input type="text" id="setting-res-name" class="form-control" style="grid-column: 2 / 5;">
-                            <label for="setting-res-address">Phone Number:</label><input type="text" id="setting-res-phone" class="form-control" style="grid-column: 2 / 5;">
+<label for="setting-res-phone">Phone Number:</label><input type="text" id="setting-res-phone" class="form-control" style="grid-column: 2 / 5;">
                             <label for="setting-res-address">Address:</label><input type="text" id="setting-res-address" class="form-control" style="grid-column: 2 / 5;">
                             <label for="setting-res-note">Invoice Note:</label><input type="text" id="setting-res-note" class="form-control" placeholder="e.g., Thank you for your visit!" style="grid-column: 2 / 5;">
                         </div>
@@ -3073,6 +3075,30 @@ let appSettings = {}, products = [], salesLog = [], users = [], sessions = [], n
 
 const { jsPDF } = window.jspdf;
 
+// --- NAYA CODE YAHAN SE SHURU HOTA HAI ---
+let shopOwnerId = null;
+
+async function setShopOwnerId() {
+    if (loggedInUser.role === 'admin') {
+        shopOwnerId = loggedInUser.id || loggedInUser.uid;
+    } else {
+        try {
+            const snapshot = await db.collection('users').where('role', '==', 'admin').limit(1).get();
+            if (!snapshot.empty) {
+                shopOwnerId = snapshot.docs[0].id;
+            } else {
+                shopOwnerId = loggedInUser.id || loggedInUser.uid;
+            }
+        } catch(e) {
+            console.error("Admin ID fetch error:", e);
+            shopOwnerId = loggedInUser.id || loggedInUser.uid;
+        }
+    }
+}
+// --- NAYA CODE YAHAN KHATAM HOTA HAI ---
+
+
+
 let partialInvoiceCart =[];
 let currentPaymentMode = 'cash'; 
 let currentInvoiceFilter = 'partially-paid';
@@ -3123,19 +3149,20 @@ function toggleSidebar() {
 
 // --- DATA ISOLATION RE-ARCHITECTURE ---
 function getUserSpecificKey(baseKey) {
-    if (!loggedInUser || !loggedInUser.id) {
-        console.error("Critical Error: User not logged in for data operation.");
-        return baseKey; 
+    if (!shopOwnerId) {
+        return `${baseKey}_${loggedInUser ? (loggedInUser.id || loggedInUser.uid) : 'unknown'}`;
     }
-    return `${baseKey}_${loggedInUser.id}`;
+    return `${baseKey}_${shopOwnerId}`; // Ab data humesha Admin ki key se fetch hoga
 }
 
 async function dbFetchData(baseKey) {
     if (!loggedInUser) return [];
-    const userId = loggedInUser.id || loggedInUser.uid;
+    if (!shopOwnerId) return []; // Master Admin ka ID zaroori hai
+    
     const key = getUserSpecificKey(baseKey);
     try {
-        const doc = await db.collection('appData').doc(userId).collection('datasets').doc(key).get();
+        // Ab yahan loggedInUser.id ki jagah shopOwnerId istemal hoga
+        const doc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).get();
         if (doc.exists) {
             const data = doc.data();
             if (data && data.payload) {
@@ -3150,10 +3177,11 @@ async function dbFetchData(baseKey) {
 
 async function loadUserSettingsOnline() {
     if (!loggedInUser) return;
-    const userId = loggedInUser.id || loggedInUser.uid;
+    if (!shopOwnerId) return;
     const key = getUserSpecificKey(SETTINGS_KEY);
     try {
-        const doc = await db.collection('appData').doc(userId).collection('datasets').doc(key).get();
+        // Yahan bhi userId ki jagah shopOwnerId lagayen
+        const doc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).get();
         if (doc.exists) {
             const data = doc.data();
             if (data && data.payload) {
@@ -3189,14 +3217,18 @@ if (appSettings.invoiceNote === undefined) appSettings.invoiceNote = "Thank you 
 
 async function saveData(key, data) {
     try {
-        // 1. Pehle LocalStorage me save karein taake offline / refresh par data na badle
-        localStorage.setItem(key, JSON.stringify(data));
+        const jsonString = JSON.stringify(data);
+        localStorage.setItem(key, jsonString);
 
-        // 2. Phir Firebase Cloud par permanent save karein
-        if (loggedInUser && (loggedInUser.id || loggedInUser.uid)) {
-            let userId = loggedInUser.id || loggedInUser.uid;
-            await db.collection('appData').doc(userId).collection('datasets').doc(key).set({ 
-                payload: JSON.stringify(data) 
+        const dataSizeInMB = new Blob([jsonString]).size / (1024 * 1024);
+        if (dataSizeInMB >= 0.95) {
+            alert(`⚠️ WARNING: Aapka data (${dataSizeInMB.toFixed(2)} MB) Cloud ki limit se bada ho gaya hai!`);
+            return; 
+        }
+
+        if (shopOwnerId) { // Yahan shopOwnerId aayega
+            await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).set({ 
+                payload: jsonString 
             });
         }
     } catch (e) {
@@ -8858,7 +8890,7 @@ function updateUserNav() {
         return;
     }
 
-    // User ki customized permissions uthayein, agar khali hon to default role-based use karein
+    // User ki customized permissions uthayein
     const userPermissions = (loggedInUser.permissions && loggedInUser.permissions.length > 0)
                             ? loggedInUser.permissions
                             : (appSettings.permissions[userRole] || []);
@@ -8868,17 +8900,12 @@ function updateUserNav() {
         el.style.display = 'none';
     });
     
-    // Dashboard hamesha sabko dikhana chahiye
-    const dashLink = document.querySelector(`.tab-link[onclick*="'Dashboard'"]`);
-    if (dashLink) dashLink.style.display = '';
-
     // Sirf wahi modules dikhayein jin ki ijazat (permission) mili hui hai
     userPermissions.forEach(moduleName => {
         const link = document.querySelector(`.tab-link[onclick*="'${moduleName}'"]`);
         if (link) {
-            link.style.display = ''; // Sub-tab show karein
+            link.style.display = ''; 
             
-            // Agar ye link kisi dropdown ke andar hai, to parent dropdown aur uske toggle button ko bhi show karein
             const parentDropdown = link.closest('.nav-item-dropdown');
             if (parentDropdown) {
                 parentDropdown.style.display = '';
@@ -8894,6 +8921,24 @@ function updateUserNav() {
     document.querySelectorAll('.admin-only').forEach(el => {
         el.style.display = 'none';
     });
+
+    // AGAR DASHBOARD KI IJAZAT NAHI HAI TO PEHLA ALLOWED MODULE KHUD KHOL DEIN
+    if (!userPermissions.includes('Dashboard') && !userPermissions.includes('all')) {
+        const dashContent = document.getElementById('Dashboard');
+        if (dashContent) {
+            dashContent.style.display = 'none';
+            dashContent.classList.remove('active');
+        }
+        
+        // Jo pehli permission mili hai, us tab par automatically click karwa dein
+        if (userPermissions.length > 0) {
+            const firstTabName = userPermissions[0];
+            const firstTab = document.querySelector(`.tab-link[onclick*="'${firstTabName}'"]`);
+            if (firstTab) {
+                setTimeout(() => firstTab.click(), 300); // 300ms ka delay taake DOM ready ho jaye
+            }
+        }
+    }
 }
 
 // --- INITIALIZATION AND DOM LOAD EVENTS ---
@@ -8930,6 +8975,7 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('reset-password-button').addEventListener('click', handlePasswordUpdateAndLogin);
 
 async function initializeApp() {
+     await setShopOwnerId();
     // 1. Loader screen (User notification)
     await syncCloudTimeOffset();
     document.getElementById('trial-status-message').textContent = "☁️ Realtime Cloud se settings load ho rahi hain...";
@@ -9278,9 +9324,11 @@ if (moduleName === 'SellReturn') {
             await dbFetchPurchaseLog();
             renderInventoryCostingReport();
         }
-        if (moduleName === 'Settings') {
-            populateSettingsForm();
-        }
+if (moduleName === 'Settings') {
+    // Browser ko loading icon dikhane ke liye 200 milliseconds ka chota sa waqfa
+    await new Promise(resolve => setTimeout(resolve, 200)); 
+    populateSettingsForm();
+}
         if (moduleName === 'AdminDashboard') {
             await renderAdminDashboard();
         }
