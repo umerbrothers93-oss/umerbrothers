@@ -4493,7 +4493,6 @@ function generateInvoicePDF(invoiceId) {
 
     const isCashSale = invoice.customerName === "Cash Customer" && invoice.remainingBalance <= 0.01;
 
-    // Headings ko Pure Black set kar diya
     doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
     doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal');
@@ -4504,17 +4503,16 @@ function generateInvoicePDF(invoiceId) {
     if (!isCashSale) {
         const detailsTableData = [['Invoice ID:', invoice.invoiceId], ['Customer Name:', invoice.customerName],['Customer Phone:', invoice.customerPhone],['Date Created:', new Date(invoice.createdAt).toLocaleDateString()],
         ];
-        // Details Table text black kar diya
-        doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
+        doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2 }, margin: { left: 14, right: 14 } });
         yPos = doc.previousAutoTable.finalY + 5;
     
-    } else {
+        } else {
         const detailsTableData = [['Invoice ID:', invoice.invoiceId],['Date Created:', new Date(invoice.createdAt).toLocaleDateString()]];
-        doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
+        doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2 }, margin: { left: 14, right: 14 } });
         yPos = doc.previousAutoTable.finalY + 5;
     }
 
-    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Purchased Items:', 14, yPos); yPos += 5;
+    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('Purchased Items:', 14, yPos); yPos += 5;
     const itemsTableData = invoice.invoiceItems.map(item =>[
         '', 
         item.name,
@@ -4527,8 +4525,8 @@ function generateInvoicePDF(invoiceId) {
         head: [['Image', 'Product Name', 'Quantity', 'Unit Price', 'Subtotal']],
         body: itemsTableData,
         theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, // Poori table ka text dark black
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, // Header ki background light grey aur text black
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor:[42, 105, 185], textColor: 255 },
         bodyStyles: { minCellHeight: 15, valign: 'middle' },
         columnStyles: {
             0: { cellWidth: 17 }, 
@@ -4560,16 +4558,15 @@ function generateInvoicePDF(invoiceId) {
     });
     yPos = doc.previousAutoTable.finalY + 10;
 
+
     const summaryData = [['Total Amount:', `${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}`],['Total Paid:', `${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}`]];
     if (!isCashSale) { summaryData.push(['Remaining Balance (Due):', `${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}`]); }
-    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Payment Summary:', 14, yPos); yPos += 5;
-    
-    // Summary table ka text bhi black kar diya
-    doc.autoTable({ startY: yPos, body: summaryData, theme: 'grid', styles: { fontSize: 10, cellPadding: 2, fontStyle: 'bold', textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
+    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('Payment Summary:', 14, yPos); yPos += 5;
+    doc.autoTable({ startY: yPos, body: summaryData, theme: 'grid', styles: { fontSize: 10, cellPadding: 2, fontStyle: 'bold' }, margin: { left: 14, right: 14 } });
     yPos = doc.previousAutoTable.finalY + 10;
 
     if (invoice.payments.length > 0) {
-        doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Payment History:', 14, yPos); yPos += 5;
+        doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('Payment History:', 14, yPos); yPos += 5;
         const paymentTableData = invoice.payments.map(p => {
             let method = p.method;
             if (p.accountDetails) {
@@ -4586,21 +4583,11 @@ function generateInvoicePDF(invoiceId) {
                 p.notes || ''
             ];
         });
-        
-        // Payment History table ka text black kar diya
-        doc.autoTable({ 
-            startY: yPos, 
-            head: [['Date', 'Method', 'Amount Paid', 'Notes']], 
-            body: paymentTableData, 
-            theme: 'grid', 
-            styles: { fontSize: 9, textColor: [0, 0, 0] }, 
-            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, 
-            margin: { left: 14, right: 14 } 
-        });
+        doc.autoTable({ startY: yPos, head: [['Date', 'Method', 'Amount Paid', 'Notes']], body: paymentTableData, theme: 'grid', styles: { fontSize: 9 }, headStyles: { fillColor:[42, 105, 185], textColor: 255 }, margin: { left: 14, right: 14 } });
         yPos = doc.previousAutoTable.finalY + 10;
     }
 
-    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10); doc.setFont('helvetica', 'italic');
     doc.text(appSettings.invoiceNote, 14, yPos);
 
     doc.save(`Invoice_${invoice.invoiceId}.pdf`);
@@ -5071,7 +5058,6 @@ function generateSellReturnReportPDF(reportType) {
 
     let yPos = 20;
 
-    doc.setTextColor(0, 0, 0); // Text color pure black
     doc.setFontSize(22); doc.setFont('helvetica', 'bold');
     doc.text(reportTitle, 105, yPos, { align: 'center' });
     yPos += 8;
@@ -5099,8 +5085,7 @@ function generateSellReturnReportPDF(reportType) {
         head: [['Date', 'Invoice ID', 'Client', 'Transaction Details', 'Reason', 'Net Amount']],
         body: tableData,
         theme: 'grid',
-        styles: { textColor: [0, 0, 0] }, // Table ka body text pure black
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, // Header ka grey background aur black text
+        headStyles: { fillColor:[217, 78, 72], textColor: 255 },
         columnStyles: { 3: { cellWidth: 'auto' } }
     });
     yPos = doc.previousAutoTable.finalY + 10;
@@ -5108,7 +5093,6 @@ function generateSellReturnReportPDF(reportType) {
     const totalNet = filteredReturns.reduce((sum, log) => sum + log.netAmount, 0);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0); // Text color pure black
     doc.text(`Total Net Amount (Period): ${CURRENCY_SYMBOL}${totalNet.toFixed(2)}`, 14, yPos);
 
     doc.save(`Sell_Return_Report_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -5288,30 +5272,14 @@ function generateReturnReceiptPDF(returnId) {
     if ((returnLogEntry.creditedItems ||[]).length > 0) {
         doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('Items Returned (Credit):', 14, yPos); yPos += 5;
         const creditTableData = returnLogEntry.creditedItems.map(item =>[item.name, item.quantity, `${CURRENCY_SYMBOL}${item.returnPrice.toFixed(2)}`, `${CURRENCY_SYMBOL}${(item.quantity * item.returnPrice).toFixed(2)}`]);
-        doc.autoTable({ 
-            startY: yPos, 
-            head: [['Product', 'Qty', 'Return Price', 'Subtotal']], 
-            body: creditTableData, 
-            theme: 'grid', 
-            styles: { textColor: [0, 0, 0] }, // Table text black
-            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, // Header background grey, text black
-            margin: { left: 14, right: 14 } 
-        });
+        doc.autoTable({ startY: yPos, head: [['Product', 'Qty', 'Return Price', 'Subtotal']], body: creditTableData, theme: 'grid', headStyles: { fillColor:[46, 160, 67], textColor: 255 }, margin: { left: 14, right: 14 } });
         yPos = doc.previousAutoTable.finalY + 10;
     }
 
     if ((returnLogEntry.debitedItems ||[]).length > 0) {
         doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('Items Given (Debit):', 14, yPos); yPos += 5;
         const debitTableData = returnLogEntry.debitedItems.map(item =>[item.name, item.quantity, `${CURRENCY_SYMBOL}${item.price.toFixed(2)}`, `${CURRENCY_SYMBOL}${(item.quantity * item.price).toFixed(2)}`]);
-        doc.autoTable({ 
-            startY: yPos, 
-            head: [['Product', 'Qty', 'Unit Price', 'Subtotal']], 
-            body: debitTableData, 
-            theme: 'grid', 
-            styles: { textColor: [0, 0, 0] }, // Table text black
-            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, // Header background grey, text black
-            margin: { left: 14, right: 14 } 
-        });
+        doc.autoTable({ startY: yPos, head: [['Product', 'Qty', 'Unit Price', 'Subtotal']], body: debitTableData, theme: 'grid', headStyles: { fillColor:[248, 81, 73], textColor: 255 }, margin: { left: 14, right: 14 } });
         yPos = doc.previousAutoTable.finalY + 10;
     }
 
@@ -5399,9 +5367,6 @@ function generateExpenseVoucherPDF(expense) {
     const doc = new jsPDF();
     let yPos = 20;
 
-    // Har qisam ke text ko Pure Black set kiya
-    doc.setTextColor(0, 0, 0);
-
     doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(appSettings.restaurantAddress, 105, yPos, { align: 'center' }); yPos += 5;
     doc.text(`Phone: ${appSettings.restaurantPhone}`, 105, yPos, { align: 'center' }); yPos += 12;
@@ -5412,13 +5377,11 @@ function generateExpenseVoucherPDF(expense) {
     const expenseDetails = [['Date:', new Date(expense.date).toLocaleDateString()],
         ['Category:', expense.category],['Description:', expense.description || 'N/A'],['Amount Paid:', `${CURRENCY_SYMBOL} ${expense.amount.toFixed(2)}`]
     ];
-    
-    // Table ka text black kar diya
     doc.autoTable({
         startY: yPos,
         body: expenseDetails,
         theme: 'grid',
-        styles: { fontSize: 12, cellPadding: 3, textColor: [0, 0, 0] }, // Pure Black Text
+        styles: { fontSize: 12, cellPadding: 3 },
         columnStyles: { 0: { fontStyle: 'bold' } },
         didParseCell: function (data) {
             if (data.row.index === 3) {
@@ -5429,7 +5392,6 @@ function generateExpenseVoucherPDF(expense) {
     });
     yPos = doc.previousAutoTable.finalY + 20;
 
-    doc.setDrawColor(0, 0, 0); // Lines bhi black kar deen
     doc.setLineWidth(0.2);
     doc.line(20, yPos, 80, yPos); 
     doc.text('Approved By', 35, yPos + 5);
@@ -5658,9 +5620,6 @@ function generateExpensePDF(reportType) {
 
     let yPos = 20;
 
-    // Page ki headings ka text black
-    doc.setTextColor(0, 0, 0);
-
     doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(appSettings.restaurantAddress, 105, yPos, { align: 'center' }); yPos += 5;
     doc.text(`Phone: ${appSettings.restaurantPhone}`, 105, yPos, { align: 'center' }); yPos += 10;
@@ -5674,14 +5633,12 @@ function generateExpensePDF(reportType) {
         `${CURRENCY_SYMBOL}${expense.amount.toFixed(2)}`
     ]);
 
-    // Report table ka text aur header black style me
     doc.autoTable({
         startY: yPos,
         head: [['Date', 'Category', 'Description', 'Amount']],
         body: tableData,
         theme: 'grid',
-        styles: { textColor: [0, 0, 0] }, // Table ki detail Black Text mein
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }, // Header Background Halka Grey aur Text Black
+        headStyles: { fillColor: [42, 105, 185], textColor: 255, fontStyle: 'bold' },
         margin: { left: 14, right: 14 }
     });
     const finalY = doc.previousAutoTable.finalY + 10;
@@ -5705,7 +5662,6 @@ function generatePurchaseReceiptPDF(logEntry) {
     const doc = new jsPDF();
     let yPos = 15;
 
-    doc.setTextColor(0, 0, 0); // Text color black
     doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(appSettings.restaurantAddress, 105, yPos, { align: 'center' }); yPos += 5;
     doc.text(`Phone: ${appSettings.restaurantPhone}`, 105, yPos, { align: 'center' }); yPos += 12;
@@ -5732,12 +5688,12 @@ function generatePurchaseReceiptPDF(logEntry) {
         head: [['Product Name', 'Quantity (Stock)', 'Unit Price', 'Subtotal']],
         body: itemsTableData,
         theme: 'grid',
-        styles: { textColor: [0, 0, 0] }, // Text Black
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] } // Header Light Grey & Text Black
+        headStyles: { fillColor:[42, 105, 185], textColor: 255 }
     });
     yPos = doc.previousAutoTable.finalY + 10;
 
-    const summaryData = [['Items Total:', `${CURRENCY_SYMBOL} ${logEntry.totalCost.toFixed(2)}`]];
+    const summaryData = [['Items Total:', `${CURRENCY_SYMBOL} ${logEntry.totalCost.toFixed(2)}`]
+    ];
     if (logEntry.discount && logEntry.discount.amount > 0) {
         summaryData.push(['Discount:', `- ${CURRENCY_SYMBOL} ${logEntry.discount.amount.toFixed(2)}`]);
     }
@@ -5752,12 +5708,15 @@ function generatePurchaseReceiptPDF(logEntry) {
         startY: yPos,
         body: summaryData,
         theme: 'grid',
-        styles: { fontSize: 11, cellPadding: 3, textColor: [0, 0, 0] },
+        styles: { fontSize: 11, cellPadding: 3 },
         columnStyles: { 0: { fontStyle: 'bold' } },
         didParseCell: function(data) {
             const boldRows = ['Grand Total:', 'Remaining Balance:'];
             if (boldRows.includes(data.cell.raw)) {
                 data.cell.styles.fontStyle = 'bold';
+            }
+            if(data.cell.raw === 'Remaining Balance:') {
+                data.cell.styles.textColor =[216, 69, 62]; 
             }
         }
     });
@@ -6435,7 +6394,6 @@ function generatePurchaserPaymentPDF(purchaserId, paymentDetails, oldBalance, ne
     const doc = new jsPDF();
     let yPos = 15;
 
-    doc.setTextColor(0, 0, 0); // Text color black
     doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(appSettings.restaurantAddress, 105, yPos, { align: 'center' }); yPos += 5;
     doc.text(`Phone: ${appSettings.restaurantPhone}`, 105, yPos, { align: 'center' }); yPos += 10;
@@ -6458,20 +6416,16 @@ function generatePurchaserPaymentPDF(purchaserId, paymentDetails, oldBalance, ne
 
     doc.autoTable({
         startY: yPos, head: [['Payment Details', '']], body: paymentTableData,
-        theme: 'grid', 
-        styles: { textColor: [0, 0, 0] },
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+        theme: 'grid', headStyles: { fillColor:[42, 105, 185], textColor: 255, fontStyle: 'bold' }
     });
 
     const balanceData = [['Previous Balance:', `${CURRENCY_SYMBOL}${oldBalance.toFixed(2)}`],['Current Payment:', `- ${CURRENCY_SYMBOL}${paymentDetails.amount.toFixed(2)}`],['New Remaining Balance:', `${CURRENCY_SYMBOL}${newBalance.toFixed(2)}`]
     ];
      doc.autoTable({
         startY: doc.previousAutoTable.finalY + 10, head: [['Account Summary', '']], body: balanceData,
-        theme: 'grid', 
-        styles: { textColor: [0, 0, 0] },
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+        theme: 'grid', headStyles: { fillColor:[42, 105, 185], textColor: 255, fontStyle: 'bold' },
         didParseCell: function (data) {
-            if (data.row.index === 2) { data.cell.styles.fontStyle = 'bold'; } 
+            if (data.row.index === 2) { data.cell.styles.fontStyle = 'bold'; data.cell.styles.textColor =[216, 69, 62]; }
         }
     });
 
@@ -6516,22 +6470,21 @@ function generatePurchaserStatementPDF(reportType = 'full') {
         return isNaN(numberValue) ? '0.00' : numberValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
-    doc.setTextColor(0, 0, 0); // Text color black
-    doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22); doc.setFont('helvetica', 'bold'); doc.setTextColor(44, 62, 80);
     doc.text(appSettings.restaurantName || 'Company / Shop Name', 105, yPos, { align: 'center' }); yPos += 7;
     
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
     doc.text(appSettings.restaurantAddress || 'Shop Address Here', 105, yPos, { align: 'center' }); yPos += 5;
     doc.text(`Phone: ${appSettings.restaurantPhone || 'N/A'}`, 105, yPos, { align: 'center' }); yPos += 8;
 
-    doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.5); doc.line(14, yPos, 196, yPos); yPos += 10;
+    doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.5); doc.line(14, yPos, 196, yPos); yPos += 10;
 
-    doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
     doc.text(reportTitle.toUpperCase(), 105, yPos, { align: 'center' }); yPos += 12;
 
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text('Statement To:', 14, yPos);
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(44, 62, 80); doc.text('Statement To:', 14, yPos);
     
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
     doc.text(`Name: ${purchaser.name}`, 14, yPos + 6);
     doc.text(`Phone: ${purchaser.phone}`, 14, yPos + 11);
     
@@ -6653,10 +6606,11 @@ function generatePurchaserStatementPDF(reportType = 'full') {
             `${CURRENCY_SYMBOL} ${formatNumber(totalCreditInPeriod)}`, 
             ''
         ]],
-        theme: 'grid',
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
-        bodyStyles: { fontSize: 9, cellPadding: 4, textColor: [0, 0, 0] },
+        theme: 'striped',
+        headStyles: { fillColor:[44, 62, 80], textColor: 255, fontStyle: 'bold', halign: 'center' },
+        footStyles: { fillColor: [220, 224, 228], textColor:[0, 0, 0], fontStyle: 'bold' },
+        bodyStyles: { fontSize: 9, cellPadding: 4, textColor: [50, 50, 50] },
+        alternateRowStyles: { fillColor: [246, 248, 250] },
         columnStyles: {
             0: { halign: 'center', cellWidth: 25 },
             1: { cellWidth: 'auto' },
@@ -6672,11 +6626,13 @@ function generatePurchaserStatementPDF(reportType = 'full') {
     doc.setFontSize(14); doc.setFont('helvetica', 'bold');
     
     if (runningBalance <= 0.01) {
+        doc.setTextColor(39, 174, 96); 
         doc.text(`Status: Account Clear (Fully Paid)`, 196, finalY, { align: 'right' });
     } else {
+        doc.setTextColor(192, 57, 43); 
         doc.text(`Final Balance Due: ${CURRENCY_SYMBOL} ${formatNumber(runningBalance)}`, 196, finalY, { align: 'right' });
     }
-    
+    doc.setTextColor(0, 0, 0); 
     doc.save(`Account_Statement_${purchaser.name.replace(/\s+/g, '_')}_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
@@ -6733,7 +6689,6 @@ function generatePurchaserReportPDF(reportType) {
     }
 
     let yPos = 15;
-    doc.setTextColor(0, 0, 0); // Text color black
     doc.setFontSize(22); doc.setFont('helvetica', 'bold'); doc.text(reportTitle, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, yPos, { align: 'center' }); yPos += 12;
 
@@ -6754,8 +6709,7 @@ function generatePurchaserReportPDF(reportType) {
         head: [['Purchase ID', 'Date', 'Purchaser', 'Total Amount', 'Paid Amount', 'Balance']],
         body: tableData,
         theme: 'grid',
-        styles: { textColor: [0, 0, 0] },
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
+        headStyles: { fillColor:[42, 105, 185], textColor: 255 }
     });
     yPos = doc.previousAutoTable.finalY + 10;
 
@@ -7014,15 +6968,14 @@ function generateCashBookReport(reportType) {
         reportTitle = "Custom Cash Book Report";
     }
 
-    // 1. Text color ko pure black set kiya
-    doc.setTextColor(0, 0, 0);
-
+    // Retrieve compiled transactions and reverse to process chronologically
     let allTransactions = compileCashBookTransactions();
     allTransactions.reverse(); 
 
     let openingBalance = 0;
     let tableData = [];
 
+    // Calculate opening balance chronologically up to the selected range
     allTransactions.forEach(txn => {
         if (txn.date < startDate) {
             if (txn.type === 'in') openingBalance += txn.amount;
@@ -7031,12 +6984,13 @@ function generateCashBookReport(reportType) {
     });
 
     let runningBalance = openingBalance;
-    let totalIn = 0;
-    let totalOut = 0;
 
     if (openingBalance !== 0) {
         tableData.push([startDate.toLocaleDateString(), "OPENING BALANCE", "", "", runningBalance.toFixed(2)]);
     }
+
+    let totalIn = 0;
+    let totalOut = 0;
 
     allTransactions.forEach(txn => {
         if (txn.date >= startDate && txn.date <= endDate) {
@@ -7057,21 +7011,18 @@ function generateCashBookReport(reportType) {
         }
     });
 
-    // 2. Heading text black
     doc.setFontSize(20); doc.text(appSettings.restaurantName, 105, 15, { align: 'center' });
     doc.setFontSize(14); doc.text(reportTitle, 105, 25, { align: 'center' });
     doc.setFontSize(10); doc.text(`Period: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`, 105, 32, { align: 'center' });
 
-    // 3. Table styling (Black text aur Grey header)
     doc.autoTable({
         startY: 40,
         head: [['Date', 'Description', 'Cash In', 'Cash Out', 'Balance']],
         body: tableData,
         foot: [['', 'TOTALS', totalIn.toFixed(2), totalOut.toFixed(2), runningBalance.toFixed(2)]],
         theme: 'grid',
-        styles: { textColor: [0, 0, 0] }, // Pure Black Text
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, // Grey header, Black text
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
+        headStyles: { fillColor: [31, 41, 55] },
+        footStyles: { fillColor: [31, 41, 55] }
     });
 
     doc.save(`${reportType}_CashBook_Report.pdf`);
@@ -7251,9 +7202,6 @@ function generateGatePassPDF(gatePassRecord) {
     let yPos = 20;
     const passDate = new Date(gatePassRecord.date).toLocaleDateString();
 
-    // 1. PDF ke saaray text ko explicitly Pure Black kar diya
-    doc.setTextColor(0, 0, 0);
-
     doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(appSettings.restaurantAddress, 105, yPos, { align: 'center' }); yPos += 5;
     doc.text(`Phone: ${appSettings.restaurantPhone}`, 105, yPos, { align: 'center' }); yPos += 12;
@@ -7275,9 +7223,7 @@ function generateGatePassPDF(gatePassRecord) {
         head: columns,
         body: data,
         theme: 'grid',
-        // 2. Table ka data black aur Header ko halka grey kar diya
-        styles: { textColor: [0, 0, 0] },
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+        headStyles: { fillColor:[42, 105, 185], textColor: 255 },
         bodyStyles: { minCellHeight: 20, valign: 'middle' }, 
         columnStyles: {
             0: { cellWidth: 15 },
@@ -7303,8 +7249,6 @@ function generateGatePassPDF(gatePassRecord) {
     });
     yPos = doc.previousAutoTable.finalY + 25;
 
-    // 3. Signature lines aur text ko bhi completely black insure kar diya
-    doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.line(20, yPos, 80, yPos);
     doc.text('Prepared By', 35, yPos + 6);
@@ -7519,9 +7463,6 @@ function generateProfitLossPDF() {
     const { from, to } = profitLossFilter;
     let yPos = 20;
 
-    // 1. PDF ki aam headings ko pure black set kar diya
-    doc.setTextColor(0, 0, 0);
-
     doc.setFontSize(22); doc.setFont('helvetica', 'bold');
     doc.text('Profit & Loss Statement', 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(12);
@@ -7535,49 +7476,44 @@ function generateProfitLossPDF() {
     const netProfit = document.getElementById('pl-net-profit').innerText;
     const returnItemLoss = document.getElementById('pl-return-item-loss-value').innerText; 
 
+    const netProfitValue = parseFloat(netProfit.replace(/[^\d.-]/g, ''));
+
     const summaryTableData = [['Revenue (Sales - Returns)', totalRevenue],
         ['Cost of Goods Sold (COGS - Returns)', totalCOGS],['Gross Profit', grossProfit],
-        ['Return Item Loss', returnItemLoss],['Operating Expenses', operatingExpenses],
+		['Return Item Loss', returnItemLoss],['Operating Expenses', operatingExpenses],
         ['Net Profit / Loss', netProfit]
     ];
     
-    // 2. Summary Table ka sara text black kar diya
     doc.autoTable({
-        startY: yPos, 
-        body: summaryTableData, 
-        theme: 'grid', 
-        styles: { fontSize: 12, cellPadding: 3, textColor: [0, 0, 0] }, // Text ko strictly black set kiya
+        startY: yPos, body: summaryTableData, theme: 'grid', styles: { fontSize: 12, cellPadding: 3 },
         columnStyles: { 0: { fontStyle: 'bold' } },
         didParseCell: function(data) {
             if (data.row.index === 2 || data.row.index === 5) { 
                 data.cell.styles.fontStyle = 'bold';
             }
-            // Pehle yahan Net Profit ke liye blue/red color laga tha, wo hata diya taake sab black rahay
+            if (data.row.index === 5) { 
+                data.cell.styles.textColor = netProfitValue >= 0 ?[30, 136, 229] : [244, 67, 54];
+            }
         }
     });
     yPos = doc.previousAutoTable.finalY + 15;
     
-    // 3. Nechay wali saari tables ke liye ek hi dafa black text aur light grey header bana diya
-    const commonTableStyles = {
-        theme: 'grid',
-        styles: { fontSize: 8, textColor: [0, 0, 0] }, // Saara table text black
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] } // Header ko halka grey kar diya
-    };
-
     doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text('Itemized Cost & Profit Details', 14, yPos); yPos += 8;
-    doc.autoTable({ startY: yPos, html: '#pl-cogs-details-table', ...commonTableStyles });
+    doc.autoTable({ startY: yPos, html: '#pl-cogs-details-table', theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor:[245, 158, 11] } });
     yPos = doc.previousAutoTable.finalY + 15;
 
     doc.setFontSize(14); doc.text('Itemized COGS Returns Details', 14, yPos); yPos += 8;
     doc.autoTable({ 
         startY: yPos, 
         html: '#pl-cogs-returns-details-tbody', 
-        ...commonTableStyles 
+        theme: 'grid', 
+        styles: { fontSize: 8 }, 
+        headStyles: { fillColor: [246, 173, 85] }
     });
     yPos = doc.previousAutoTable.finalY + 15;
 
     doc.setFontSize(14); doc.text('Operating Expenses Details', 14, yPos); yPos += 8;
-    doc.autoTable({ startY: yPos, html: '#pl-expenses-details-table', ...commonTableStyles });
+    doc.autoTable({ startY: yPos, html: '#pl-expenses-details-table', theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor:[239, 68, 68] } });
 
     doc.save(`Profit_Loss_${new Date().toISOString().split('T')[0]}.pdf`);
 }
@@ -7796,9 +7732,6 @@ function generateAllReportsPDF() {
     const { type, from, to } = allReportsFilter;
     let yPos = 20;
 
-    // 1. PDF ke general headings ka text pure black kar diya
-    doc.setTextColor(0, 0, 0);
-
     doc.setFontSize(22); doc.text('Comprehensive Financial Report', 105, yPos, { align: 'center' }); yPos += 10;
     doc.setFontSize(12); doc.text(`Period: ${from.toLocaleDateString()} - ${to.toLocaleDateString()}`, 105, yPos, { align: 'center' }); yPos += 15;
 
@@ -7811,41 +7744,27 @@ function generateAllReportsPDF() {
     const pl = document.getElementById('ar-profit-loss').textContent;
 
     const summaryData = [
-        ['Total Payment', sales],      
-        ['Total Expenses', exp],
-        ['Total Refunds', ret],
-        ['Total Receivables', rec],
-        ['Total Sale', pay],           
-        ['Net Cash In Hand', pl]         
-    ];
+    ['Total Payment', sales],      
+    ['Total Expenses', exp],
+    ['Total Refunds', ret],
+    ['Total Receivables', rec],
+    ['Total Sale', pay],           
+     ['Net Cash In Hand', pl]         
+];
 
-    // 2. Summary Table ka text black
-    doc.autoTable({ 
-        startY: yPos, 
-        body: summaryData, 
-        theme: 'grid', 
-        styles: { textColor: [0, 0, 0] }, 
-        columnStyles: { 0: { fontStyle: 'bold' } } 
-    });
+    doc.autoTable({ startY: yPos, body: summaryData, theme: 'grid', columnStyles: { 0: { fontStyle: 'bold' } } });
     yPos = doc.previousAutoTable.finalY + 15;
 
-    // Table styles ka ek common format bana diya taake sab tables par black text aur grey header apply ho
-    const commonTableStyles = {
-        theme: 'grid',
-        styles: { fontSize: 8, textColor: [0, 0, 0] }, // Poori table ka text black
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] } // Header background halka grey, aur text black
-    };
-
     doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text('Sales Details', 14, yPos); yPos += 6;
-    doc.autoTable({ startY: yPos, html: '#ar-sales-table', ...commonTableStyles });
+    doc.autoTable({ startY: yPos, html: '#ar-sales-table', theme: 'grid', styles: { fontSize: 8 } });
     yPos = doc.previousAutoTable.finalY + 15;
 
     doc.setFontSize(14); doc.text('Expense Details', 14, yPos); yPos += 6;
-    doc.autoTable({ startY: yPos, html: '#ar-expenses-table', ...commonTableStyles });
+    doc.autoTable({ startY: yPos, html: '#ar-expenses-table', theme: 'grid', styles: { fontSize: 8 } });
     yPos = doc.previousAutoTable.finalY + 15;
     
     doc.setFontSize(14); doc.text('Sell Return Details', 14, yPos); yPos += 6;
-    doc.autoTable({ startY: yPos, html: '#ar-returns-table', ...commonTableStyles });
+    doc.autoTable({ startY: yPos, html: '#ar-returns-table', theme: 'grid', styles: { fontSize: 8 } });
 
     doc.save(`Full_Report_${type}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
@@ -8760,10 +8679,9 @@ function generateSinglePurchaserSummaryPDF(purchaser) {
     const doc = new jsPDF();
     let yPos = 15;
 
-    doc.setTextColor(0, 0, 0); // Text color black
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('Purchaser Summary Report', 105, 20, { align: 'center' });
+    doc.text('Product Stock Report', 105, 20, { align: 'center' });
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
@@ -8781,17 +8699,18 @@ function generateSinglePurchaserSummaryPDF(purchaser) {
     ];
     
     doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text('Lifetime Summary', 14, yPos + 25); yPos += 33;
+    doc.text('Lifetime Summary', 14, yPos); yPos += 8;
 
     doc.autoTable({
         startY: yPos,
         body: summaryData,
         theme: 'grid',
-        styles: { fontSize: 12, cellPadding: 3, textColor: [0, 0, 0] },
+        styles: { fontSize: 12, cellPadding: 3 },
         columnStyles: { 0: { fontStyle: 'bold' } },
          didParseCell: function (data) {
             if (data.row.index === 3) { 
                 data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.textColor =[216, 69, 62]; 
             }
         }
     });
@@ -8812,9 +8731,8 @@ function generateSinglePurchaserSummaryPDF(purchaser) {
         startY: yPos,
         head: [['Purchase ID', 'Date', 'Total Amount', 'Paid', 'Balance']],
         body: historyData,
-        theme: 'grid',
-        styles: { textColor: [0, 0, 0] },
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
+        theme: 'striped',
+        headStyles: { fillColor: [44, 62, 80] }
     });
 
     doc.save(`Purchaser_Summary_${purchaser.name.replace(/\s+/g, '_')}.pdf`);
@@ -9636,9 +9554,6 @@ function generateProductStockPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // 1. PDF ke general text ko explicitly Dark Black set kiya hai
-    doc.setTextColor(0, 0, 0);
-
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.text('Product Stock Report', 105, 20, { align: 'center' });
@@ -9652,7 +9567,7 @@ function generateProductStockPDF() {
     const remQtyTotal = document.getElementById('stk-total-remaining-count').textContent;
     const remAmtTotal = document.getElementById('stk-total-remaining-amount').textContent;
 
-    doc.setFontSize(12);
+   doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     // Pehli line par Sold Stock
     doc.text(`Sold Stock: ${soldQtyTotal} Items (Amount: ${soldAmtTotal})`, 15, 45);
@@ -9673,9 +9588,8 @@ function generateProductStockPDF() {
         head: [['Item Name', 'Unit Price', 'Sold Qty', 'Sold Total', 'Rem Qty', 'Rem Total']],
         body: tableData,
         theme: 'grid',
-        // 2. Table ke header aur body ka text strictly Dark Black [0, 0, 0] kar diya hai
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, // Halka grey background taake black text clear parha jaye
-        styles: { fontSize: 10, textColor: [0, 0, 0] } // Poori table ki rows ka text black
+        headStyles: { fillColor: [42, 105, 185], textColor: 255 },
+        styles: { fontSize: 10 }
     });
 
     doc.save(`Stock_Report_${new Date().toISOString().split('T')[0]}.pdf`);
