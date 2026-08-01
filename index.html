@@ -1357,12 +1357,23 @@ body,
                             <label for="new-product-low-stock">Low Stock Alert:</label>
                             <input type="number" id="new-product-low-stock" class="form-control" placeholder="e.g., 5">
                             
-                            <label for="new-product-image">Product Image:</label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-<input type="file" id="new-product-image" class="form-control" accept="image/*" capture="environment">
+                            <label>Product Image:</label>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <!-- Option 1: Gallery Button -->
+    <label class="btn btn-info" style="cursor: pointer; padding: 8px 14px; font-size: 0.85rem;">
+        🖼️ Gallery Se Choose Karein
+        <input type="file" id="new-product-image-gallery" accept="image/*" style="display: none;" onchange="handleNewProductImageUpload(event)">
+    </label>
+    
+    <!-- Option 2: Camera Button -->
+    <label class="btn btn-primary" style="cursor: pointer; padding: 8px 14px; font-size: 0.85rem;">
+        📷 Camera Se Photo Lein
+        <input type="file" id="new-product-image-camera" accept="image/*" capture="environment" style="display: none;" onchange="handleNewProductImageUpload(event)">
+    </label>
 
-                                <img id="new-product-preview" src="" alt="Preview" style="width: 50px; height: 50px; display: none; border-radius: 4px; border: 1px solid var(--border-color);">
-                            </div>
+    <!-- Preview Box -->
+    <img id="new-product-preview" src="" alt="Preview" style="width: 45px; height: 45px; display: none; border-radius: 6px; border: 1px solid var(--border-color); object-fit: cover;">
+</div>
                         </div>
                         <div class="manage-buttons">
                             <button id="btn-add-managed-product" class="btn btn-success">Add Product</button>
@@ -3836,7 +3847,13 @@ function resetManagedProductForm() {
     document.getElementById('new-product-name').value = '';
     document.getElementById('new-product-price').value = '';
     document.getElementById('new-product-cost-price').value = '';
-    document.getElementById('new-product-image').value = '';
+    
+    // Clear Both Inputs
+    const galleryInput = document.getElementById('new-product-image-gallery');
+    const cameraInput = document.getElementById('new-product-image-camera');
+    if (galleryInput) galleryInput.value = '';
+    if (cameraInput) cameraInput.value = '';
+    
     document.getElementById('new-product-low-stock').value = '';
     document.getElementById('new-product-preview').style.display = 'none';
     currentImageBase64 = null;
@@ -4482,19 +4499,29 @@ function getStatusClass(status) {
     }
 }
 
-function generateInvoicePDF(invoiceId) {
+async function generateInvoicePDF(invoiceId) {
     const invoice = partialPaymentInvoices.find(inv => inv.invoiceId == invoiceId); 
     if (!invoice) {
         alert("Invoice not found.");
         return;
     }
 
+    // Invoice ke har product ki image pehle se load/prepare karein
+    const preparedItems = await Promise.all(invoice.invoiceItems.map(async (item) => {
+        const product = products.find(p => p.id === item.id);
+        const imgUrl = (product && product.image_path) ? product.image_path : item.image_path;
+        const base64Img = await getBase64FromUrl(imgUrl);
+        return {
+            ...item,
+            preparedImg: base64Img
+        };
+    }));
+
     const doc = new jsPDF();
     let yPos = 15;
 
     const isCashSale = invoice.customerName === "Cash Customer" && invoice.remainingBalance <= 0.01;
 
-    // Headings ko Pure Black set kar diya
     doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
     doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal');
@@ -4503,36 +4530,40 @@ function generateInvoicePDF(invoiceId) {
     doc.setFontSize(16); doc.text(`INVOICE (${isCashSale ? 'CASH SALE' : invoice.status.toUpperCase()})`, 105, yPos, { align: 'center' }); yPos += 10;
 
     if (!isCashSale) {
-        const detailsTableData = [['Invoice ID:', invoice.invoiceId], ['Customer Name:', invoice.customerName],['Customer Phone:', invoice.customerPhone],['Date Created:', new Date(invoice.createdAt).toLocaleDateString()],
+        const detailsTableData = [
+            ['Invoice ID:', invoice.invoiceId], 
+            ['Customer Name:', invoice.customerName],
+            ['Customer Phone:', invoice.customerPhone],
+            ['Date Created:', new Date(invoice.createdAt).toLocaleDateString()]
         ];
-        // Details Table text black kar diya
         doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
         yPos = doc.previousAutoTable.finalY + 5;
-    
     } else {
-        const detailsTableData = [['Invoice ID:', invoice.invoiceId],['Date Created:', new Date(invoice.createdAt).toLocaleDateString()]];
+        const detailsTableData = [['Invoice ID:', invoice.invoiceId], ['Date Created:', new Date(invoice.createdAt).toLocaleDateString()]];
         doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
         yPos = doc.previousAutoTable.finalY + 5;
     }
 
     doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Purchased Items:', 14, yPos); yPos += 5;
-    const itemsTableData = invoice.invoiceItems.map(item =>[
+    
+    const itemsTableData = preparedItems.map(item => [
         '', 
         item.name,
         item.quantity,
         `${CURRENCY_SYMBOL}${item.price.toFixed(2)}`,
         `${CURRENCY_SYMBOL}${(item.quantity * item.price).toFixed(2)}`
     ]);
+
     doc.autoTable({
         startY: yPos,
         head: [['Image', 'Product Name', 'Quantity', 'Unit Price', 'Subtotal']],
         body: itemsTableData,
         theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, // Poori table ka text dark black
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, // Header ki background light grey aur text black
-        bodyStyles: { minCellHeight: 15, valign: 'middle' },
+        styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] },
+        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+        bodyStyles: { minCellHeight: 16, valign: 'middle' },
         columnStyles: {
-            0: { cellWidth: 17 }, 
+            0: { cellWidth: 20 }, 
             1: { cellWidth: 'auto' },
             2: { cellWidth: 20 },
             3: { cellWidth: 30 },
@@ -4542,34 +4573,37 @@ function generateInvoicePDF(invoiceId) {
         didDrawCell: function(data) {
             if (data.section === 'body' && data.column.index === 0) {
                 const rowIndex = data.row.index;
-                const invoiceItem = invoice.invoiceItems[rowIndex];
-                if (invoiceItem) {
-                    const product = products.find(p => p.id === invoiceItem.id);
-                    if (product && product.image_path) {
-                        const imgSize = 12; 
-                        const x = data.cell.x + (data.cell.width - imgSize) / 2;
-                        const y = data.cell.y + (data.cell.height - imgSize) / 2;
-                        try {
-                            doc.addImage(product.image_path, 'JPEG', x, y, imgSize, imgSize);
-                        } catch (e) {
-                            console.error(`Could not add image for product ${product.name} to PDF.`, e);
-                        }
+                const item = preparedItems[rowIndex];
+                if (item && item.preparedImg) {
+                    const imgSize = 12; 
+                    const x = data.cell.x + (data.cell.width - imgSize) / 2;
+                    const y = data.cell.y + (data.cell.height - imgSize) / 2;
+                    try {
+                        doc.addImage(item.preparedImg, 'JPEG', x, y, imgSize, imgSize);
+                    } catch (e) {
+                        console.error("Image render error:", e);
                     }
                 }
             }
         }
     });
+
     yPos = doc.previousAutoTable.finalY + 10;
 
-    const summaryData = [['Total Amount:', `${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}`],['Total Paid:', `${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}`]];
-    if (!isCashSale) { summaryData.push(['Remaining Balance (Due):', `${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}`]); }
+    const summaryData = [
+        ['Total Amount:', `${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}`],
+        ['Total Paid:', `${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}`]
+    ];
+    if (!isCashSale) { 
+        summaryData.push(['Remaining Balance (Due):', `${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}`]); 
+    }
+    
     doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Payment Summary:', 14, yPos); yPos += 5;
     
-    // Summary table ka text bhi black kar diya
     doc.autoTable({ startY: yPos, body: summaryData, theme: 'grid', styles: { fontSize: 10, cellPadding: 2, fontStyle: 'bold', textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
     yPos = doc.previousAutoTable.finalY + 10;
 
-    if (invoice.payments.length > 0) {
+    if (invoice.payments && invoice.payments.length > 0) {
         doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Payment History:', 14, yPos); yPos += 5;
         const paymentTableData = invoice.payments.map(p => {
             let method = p.method;
@@ -4588,7 +4622,6 @@ function generateInvoicePDF(invoiceId) {
             ];
         });
         
-        // Payment History table ka text black kar diya
         doc.autoTable({ 
             startY: yPos, 
             head: [['Date', 'Method', 'Amount Paid', 'Notes']], 
@@ -4602,7 +4635,7 @@ function generateInvoicePDF(invoiceId) {
     }
 
     doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(0, 0, 0);
-    doc.text(appSettings.invoiceNote, 14, yPos);
+    doc.text(appSettings.invoiceNote || 'No return no exchange no warranty', 14, yPos);
 
     doc.save(`Invoice_${invoice.invoiceId}.pdf`);
 }
@@ -9105,7 +9138,7 @@ async function initializeApp() {
     document.getElementById('btn-save-managed-product').addEventListener('click', saveManagedProductChanges);
     document.getElementById('btn-cancel-edit-managed-product').addEventListener('click', resetManagedProductForm);
     document.getElementById('manage-product-search').addEventListener('input', renderManageProductsList);
-    document.getElementById('new-product-image').addEventListener('change', handleNewProductImageUpload);
+
 
     document.getElementById('btn-add-partial-invoice').addEventListener('click', addPartialPaymentInvoice);
     document.getElementById('btn-save-sale-changes').addEventListener('click', saveSaleInvoiceChanges);
@@ -9209,7 +9242,7 @@ async function initializeApp() {
     await dbFetchStockUpdates();
     await dbFetchSellReturns();
     
-    sanitizeHeavyImages(); // <--- YAHAN AUTO-CLEANER KO CALL KAREIN
+// sanitizeHeavyImages(); // Is line ko comment out kar dein
     
     refreshAll();
 }
@@ -10255,6 +10288,32 @@ function sanitizeHeavyImages() {
         saveProducts();
         console.log("Database successfully cleaned from heavy Base64 images!");
     }
+}
+
+// Online Image URL ko PDF ke liye prepare karne wala helper function
+function getBase64FromUrl(url) {
+    return new Promise((resolve) => {
+        if (!url) return resolve(null);
+        if (url.startsWith('data:image')) return resolve(url);
+
+        const img = new Image();
+        img.crossOrigin = 'Anonymous'; // CORS Handle karne ke liye
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            try {
+                const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(dataURL);
+            } catch (e) {
+                resolve(null);
+            }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+    });
 }
 
 </script>
