@@ -3207,10 +3207,10 @@ async function loadUserSettingsOnline() {
     // Default Settings agar empty hon
     // Default Settings sirf pehli baar ke liye (agar bilkul na hon)
 appSettings = appSettings || {};
-if (appSettings.restaurantName === undefined) appSettings.restaurantName = "FJM Social Media";
-if (appSettings.restaurantAddress === undefined) appSettings.restaurantAddress = "123 Main Street, Your City";
-if (appSettings.restaurantPhone === undefined) appSettings.restaurantPhone = "+92 123 4567890";
-if (appSettings.invoiceNote === undefined) appSettings.invoiceNote = "Thank you for your purchase!";
+if (appSettings.restaurantName === undefined) appSettings.restaurantName = "Umer Brothers";
+if (appSettings.restaurantAddress === undefined) appSettings.restaurantAddress = "Prince road near rahat cineman Quetta";
+if (appSettings.restaurantPhone === undefined) appSettings.restaurantPhone = "03327909930";
+if (appSettings.invoiceNote === undefined) appSettings.invoiceNote = "No return no exchange no warranty";
     appSettings.discountPercent = appSettings.discountPercent ?? 10;
     appSettings.taxPercent = appSettings.taxPercent ?? 5;
     appSettings.enableDiscount = appSettings.enableDiscount ?? true;
@@ -3319,10 +3319,10 @@ function loadUserSpecificData() {
 
     const settingsData = localStorage.getItem(getUserSpecificKey(SETTINGS_KEY));
     appSettings = settingsData ? JSON.parse(settingsData) : {};
-    appSettings.restaurantName = appSettings.restaurantName || "FJM Social Media";
-    appSettings.restaurantAddress = appSettings.restaurantAddress || "123 Main Street, Your City";
-    appSettings.restaurantPhone = appSettings.restaurantPhone || "+92 123 4567890";
-    appSettings.invoiceNote = appSettings.invoiceNote || "Thank you for your purchase!";
+    appSettings.restaurantName = appSettings.restaurantName || "Umer Brothers";
+    appSettings.restaurantAddress = appSettings.restaurantAddress || "Prince road near rahat cineman Quetta";
+    appSettings.restaurantPhone = appSettings.restaurantPhone || "03327909930";
+    appSettings.invoiceNote = appSettings.invoiceNote || "No return no exchange no warranty";
     appSettings.discountPercent = appSettings.discountPercent ?? 10;
     appSettings.taxPercent = appSettings.taxPercent ?? 5;
     appSettings.enableDiscount = appSettings.enableDiscount ?? true;
