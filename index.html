@@ -9102,9 +9102,20 @@ async function initializeApp() {
     // ==========================================
     // YAHAN NAYA CHECK ADD KIYA GAYA HAI
     // ==========================================
-    const isSoftwareActive = checkCloudFeeStatus();
-    if (!isSoftwareActive) return; // Agar time khatam ho gaya to code aage nahi chalega, lock screen aa jayegi.
-    // ==========================================
+   // 1. Database se Admin (Shop Owner) ki expiry date nikalen
+let adminExpiry = null;
+try {
+    const adminDoc = await db.collection('users').doc(shopOwnerId).get();
+    if (adminDoc.exists) {
+        adminExpiry = adminDoc.data().approved_until;
+    }
+} catch (e) {
+    console.error("Error fetching admin expiry:", e);
+}
+
+// 2. Expiry check run karein
+const isSoftwareActive = checkCloudFeeStatus(adminExpiry);
+if (!isSoftwareActive) return;
 
     // 3. Admin permissions set karein
     if (!appSettings.permissions) {
@@ -10192,35 +10203,42 @@ function deleteCashBookTransaction(id) {
 // Misal ke taur par: Agle saal ki date dal dein. Agar 1 din dena hai to kal ki date dal dein.
 const CLOUD_FEE_EXPIRY_DATE = "2027-03-14T23:59:59"; 
 
-function checkCloudFeeStatus() {
-    const expiryDate = new Date(CLOUD_FEE_EXPIRY_DATE);
-    const now = getCloudDate(); // Real cloud time taake PC time change karne se cheat na ho sake
-    
+function checkCloudFeeStatus(adminExpiry) {
+    const statusMsg = document.getElementById('trial-status-message');
+    const lockScreen = document.getElementById('lock-screen');
+    const authContainer = document.getElementById('auth-container');
+    const mainApp = document.getElementById('main-app');
+
+    // 1. DEFAULT/FALLBACK DATE
+    let expiryDate = new Date("2027-03-14T23:59:59"); 
+
+    // 2. SMART CHECK: Agar admin ki expiry date mil jaye to wahi use hogi
+    if (adminExpiry) {
+        expiryDate = new Date(adminExpiry);
+    } else if (loggedInUser && loggedInUser.approved_until) {
+        expiryDate = new Date(loggedInUser.approved_until);
+    }
+
+    const now = getCloudDate(); 
     const timeDiff = expiryDate - now;
     const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-    
-    const statusMsg = document.getElementById('trial-status-message');
 
-    // Agar date guzar chuki hai (Software Lock)
     if (now > expiryDate) {
-        document.getElementById('auth-container').style.display = 'none';
-        document.getElementById('main-app').style.display = 'none';
-        document.getElementById('lock-screen').style.display = 'flex';
-        return false; // Lock lag gaya
-    } 
-    // Agar time baqi hai (Show remaining Months / Days)
-    else {
+        if (authContainer) authContainer.style.display = 'none';
+        if (mainApp) mainApp.style.display = 'none';
+        if (lockScreen) lockScreen.style.display = 'flex';
+        return false;
+    } else {
+        if (lockScreen) lockScreen.style.display = 'none';
         if (statusMsg) {
             if (daysRemaining > 30) {
-                // Agar 30 din se zyada hain toh mahine (months) show karega
                 const monthsRemaining = Math.floor(daysRemaining / 30);
                 statusMsg.innerHTML = `☁️ <span style="color:#14b8a6; font-weight:bold;">Cloud Active: ${monthsRemaining} Month(s) left</span>`;
-            } else {
-                // Agar 30 din ya us se kam reh gaye hain toh din (days) show karega red color mein
+            } else if (daysRemaining > 0) {
                 statusMsg.innerHTML = `⚠️ <span style="color:#ef4444; font-weight:bold;">Cloud Fee Due in ${daysRemaining} Day(s)!</span>`;
             }
         }
-        return true; // Software chalne do
+        return true;
     }
 }
 
