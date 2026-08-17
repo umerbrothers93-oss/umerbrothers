@@ -1480,13 +1480,12 @@ body,
                             <button class="btn btn-outline" onclick="filterInvoices('all')">Show All</button>
                         </div>
 
-                        <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
-                            <table class="cart-table">
-                                <thead><tr><th>Invoice ID</th><th>Customer</th><th>Total (Debit)</th><th>Paid (Credit)</th><th>Remaining</th><th>Status</th><th>Actions</th></tr></thead>
-                                <tbody id="partial-invoices-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                       <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
+    <table class="cart-table">
+        <thead><tr><th>Date</th><th>Invoice ID</th><th>Customer</th><th>Total (Debit)</th><th>Paid (Credit)</th><th>Remaining</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="partial-invoices-table-body"></tbody>
+    </table>
+</div>
 
                     <!-- Modal/Expanded View for Adding/Editing Payments -->
                     <div id="payment-modal" class="manage-form" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; max-width: 500px; padding: 30px; border: 1px solid var(--border-color);">
@@ -4180,28 +4179,32 @@ function renderPartialPaymentTable() {
 
 
     filteredInvoices.forEach(invoice => {
-        const row = document.createElement('tr');
-        const statusClass = getStatusClass(invoice.status);
-        const remainingColor = invoice.remainingBalance > 0.01 ? 'var(--danger-color)' : 'var(--success-color)';
-        const isFullyPaid = invoice.status === 'Fully Paid';
+    const row = document.createElement('tr');
+    const statusClass = getStatusClass(invoice.status);
+    const remainingColor = invoice.remainingBalance > 0.01 ? 'var(--danger-color)' : 'var(--success-color)';
+    const isFullyPaid = invoice.status === 'Fully Paid';
+    
+    // Invoice ki creation date format karne ke liye
+    const invoiceDate = invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : '-';
 
-        row.innerHTML = `
-            <td>${invoice.invoiceId}</td>
-            <td>${invoice.customerName}</td>
-            <td>${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}</td>
-            <td>${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}</td>
-            <td style="color: ${remainingColor}; font-weight: bold;">${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}</td>
-            <td><span class="${statusClass}">${invoice.status}</span></td>
-            <td>
-                <button class="btn btn-sm btn-info" onclick="openPaymentModal('${invoice.invoiceId}')" ${isFullyPaid ? 'disabled' : ''}>Add Payment</button>
-                <button class="btn btn-sm btn-secondary" onclick="openViewPaymentsModal('${invoice.invoiceId}')">View Payments</button> 
-                <button class="btn btn-sm btn-warning" onclick="editSaleInvoice('${invoice.invoiceId}')">Edit</button>
-                <button class="btn btn-sm btn-primary" onclick="generateInvoicePDF('${invoice.invoiceId}')">PDF</button>
-                <button class="btn btn-sm btn-danger" onclick="initiateSellReturn('${invoice.invoiceId}')">Return</button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
+    row.innerHTML = `
+        <td>${invoiceDate}</td>
+        <td>${invoice.invoiceId}</td>
+        <td>${invoice.customerName}</td>
+        <td>${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}</td>
+        <td>${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}</td>
+        <td style="color: ${remainingColor}; font-weight: bold;">${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}</td>
+        <td><span class="${statusClass}">${invoice.status}</span></td>
+        <td>
+            <button class="btn btn-sm btn-info" onclick="openPaymentModal('${invoice.invoiceId}')" ${isFullyPaid ? 'disabled' : ''}>Add Payment</button>
+            <button class="btn btn-sm btn-secondary" onclick="openViewPaymentsModal('${invoice.invoiceId}')">View Payments</button> 
+            <button class="btn btn-sm btn-warning" onclick="editSaleInvoice('${invoice.invoiceId}')">Edit</button>
+            <button class="btn btn-sm btn-primary" onclick="generateInvoicePDF('${invoice.invoiceId}')">PDF</button>
+            <button class="btn btn-sm btn-danger" onclick="initiateSellReturn('${invoice.invoiceId}')">Return</button>
+        </td>
+    `;
+    tbody.appendChild(row);
+});
 }
 
 function openPaymentModal(invoiceId) {
