@@ -1480,12 +1480,13 @@ body,
                             <button class="btn btn-outline" onclick="filterInvoices('all')">Show All</button>
                         </div>
 
-                       <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
-    <table class="cart-table">
-        <thead><tr><th>Date</th><th>Invoice ID</th><th>Customer</th><th>Total (Debit)</th><th>Paid (Credit)</th><th>Remaining</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="partial-invoices-table-body"></tbody>
-    </table>
-</div>
+                        <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
+                            <table class="cart-table">
+                                <thead><tr><th>Date</th><th>Invoice ID</th><th>Customer</th><th>Total (Debit)</th><th>Paid (Credit)</th><th>Remaining</th><th>Status</th><th>Actions</th></tr></thead>
+                                <tbody id="partial-invoices-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div> <!-- <-- Yeh manage-list ka band hona lazmi tha jo missing tha -->
 
                     <!-- Modal/Expanded View for Adding/Editing Payments -->
                     <div id="payment-modal" class="manage-form" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; max-width: 500px; padding: 30px; border: 1px solid var(--border-color);">
