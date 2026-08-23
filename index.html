@@ -8056,7 +8056,6 @@ function syncLoggedInUserWithGlobalUsers() {
 }
 
 
-// SIRF YE SIMPLE LOGIN KAREGA
 async function handleLogin() {
     const email = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -8071,34 +8070,12 @@ async function handleLogin() {
         loginBtn.innerText = "Processing...";
         loginBtn.disabled = true;
 
-        // Simple login process
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-
-        const userDoc = await db.collection('users').doc(user.uid).get();
-        const userData = userDoc.data();
-
-        if (userData) {
-            if (userData.status !== 'Approved' && userData.role !== 'admin') {
-                alert("Aapka account PENDING hai. Admin ki approval ka intezar karein.");
-                auth.signOut();
-                loginBtn.innerText = "Login";
-                loginBtn.disabled = false;
-                return;
-            }
-
-            loggedInUser = { id: user.uid, ...userData };
-            sessionStorage.setItem('active_user_session', JSON.stringify(loggedInUser));
-
-            document.getElementById('auth-container').style.display = 'none'; 
-            document.getElementById('main-app').style.display = 'flex'; 
-            initializeApp(); 
-        }
+        // Firebase Auth SignIn (ye khud onAuthStateChanged ko trigger karega)
+        await auth.signInWithEmailAndPassword(email, password);
 
     } catch(e) {
         console.error("Login Error:", e);
         alert("Ghalti: Username ya Password sahi nahi hai.");
-    } finally {
         loginBtn.innerText = "Login";
         loginBtn.disabled = false;
     }
@@ -9061,28 +9038,65 @@ function updateUserNav() {
     }
 }
 
-// --- INITIALIZATION AND DOM LOAD EVENTS ---
 document.addEventListener('DOMContentLoaded', () => {
     loadGlobalData();
 
-    // Firebase Auth State Listener taake authentication process mukammal hone ka wait kiya ja sake
-    auth.onAuthStateChanged((user) => {
+    // Firebase Auth State Listener (Fixed Version)
+    auth.onAuthStateChanged(async (user) => {
+        const loginBtn = document.getElementById('login-button');
+        const registerBtn = document.getElementById('register-button');
+
         if (user) {
-            // Firebase SDK successfully backend par login ho chuka hai
-            loggedInUser = { id: user.uid, ...JSON.parse(sessionStorage.getItem('active_user_session') || '{}') };
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('main-app').style.display = 'flex';
-            initializeApp(); 
+            try {
+                // 1. Agar session mojud nahi toh Firestore Database se mukammal user load karein
+                let cachedSession = sessionStorage.getItem('active_user_session');
+                let userData = cachedSession ? JSON.parse(cachedSession) : null;
+
+                if (!userData || !userData.name) {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    if (userDoc.exists) {
+                        userData = userDoc.data();
+                    }
+                }
+
+                // 2. Approval check
+                if (userData && userData.status !== 'Approved' && userData.role !== 'admin') {
+                    alert("Aapka account PENDING hai. Admin ki approval ka intezar karein.");
+                    auth.signOut();
+                    return;
+                }
+
+                // 3. User data ko properly assign karein taake undefined na aaye
+                loggedInUser = { id: user.uid, ...userData };
+                sessionStorage.setItem('active_user_session', JSON.stringify(loggedInUser));
+
+                // 4. UI Switch karein
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-app').style.display = 'flex';
+                
+                // 5. App initialize karein
+                await initializeApp();
+
+            } catch (err) {
+                console.error("Auth profile load error:", err);
+                alert("Profile load karne mein masla aya: " + err.message);
+                auth.signOut();
+            } finally {
+                if (loginBtn) {
+                    loginBtn.innerText = "Login";
+                    loginBtn.disabled = false;
+                }
+            }
         } else {
-            // Agar Firebase par login session active nahi hai ya expire ho chuka hai
+            // User logged out hai
             sessionStorage.removeItem('active_user_session');
+            loggedInUser = null;
             document.getElementById('auth-container').style.display = 'flex';
             document.getElementById('main-app').style.display = 'none';
             
-            // Event listeners re-bind karein
-            const loginBtn = document.getElementById('login-button');
-            const registerBtn = document.getElementById('register-button');
             if (loginBtn) {
+                loginBtn.innerText = "Login";
+                loginBtn.disabled = false;
                 loginBtn.onclick = handleLogin;
             }
             if (registerBtn) {
