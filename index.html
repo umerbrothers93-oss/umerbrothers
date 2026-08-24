@@ -3084,7 +3084,8 @@ const defaultProducts =[];
 
 // --- Application State Variables ---
 let appSettings = {}, products = [], salesLog = [], users = [], sessions = [], notifications =[], expenses =[], expenseCategories = [], partialPaymentInvoices =[], purchasers = [], purchaseLog = [], cashBookLog =[], gatePassLog =[], sellReturnsLog =[], stockUpdatesLog =[], selectedCategory = "All", selectedProductIdToManage = null, selectedInvoiceId = null, currentImageBase64 = null, loggedInUser = null;
-
+let isAppInitialized = false;
+let isCreatingInvoice = false;
 const { jsPDF } = window.jspdf;
 
 // --- NAYA CODE YAHAN SE SHURU HOTA HAI ---
@@ -4061,7 +4062,9 @@ function renderPartialInvoiceCart() {
     totalElement.textContent = `${CURRENCY_SYMBOL}${totalAmount.toFixed(2)}`;
 }
 
-function addPartialPaymentInvoice() {
+async function addPartialPaymentInvoice() {
+    if (isCreatingInvoice) return; // Dobara click hone se lock karega
+
     if (editingInvoiceId) {
         saveSaleInvoiceChanges();
         return;
@@ -4100,61 +4103,88 @@ function addPartialPaymentInvoice() {
         numInstallments = 0;
     }
 
-    partialInvoiceCart.forEach(cartItem => {
-        const product = products.find(p => p.id === cartItem.id);
-        if (product) {
-            product.quantity -= cartItem.quantity;
-        }
-    });
-    saveProducts();
-
-    const newInvoiceId = appSettings.nextInvoiceNumber;
-    appSettings.nextInvoiceNumber++;
-    saveSettings(); 
-
-    const invoiceItemsWithCost = partialInvoiceCart.map(item => ({
-        ...item,
-        originalQuantity: item.quantity, 
-        costAtTimeOfSale: getCostPrice(item.id)
-    }));
-
-    const newInvoice = {
-    invoiceId: newInvoiceId, 
-    customerName: customerName,
-    customerPhone: customerPhone,
-    totalAmount: totalAmount,
-    paidAmount: advancePayment,
-    remainingBalance: totalAmount - advancePayment,
-    status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
-    installments: numInstallments,
-    payments: advancePayment > 0 ?[{ 
-        paymentId: 'pay' + Date.now(), 
-        amount: advancePayment, 
-date: getLocalDateString() + 'T12:00:00.000Z', 
-
-        method: paymentMethod, 
-        accountDetails: accountDetails,
-        notes: "Initial Payment" 
-    }] :[],
-createdAt: getLocalDateString() + 'T12:00:00.000Z',
-    invoiceItems: invoiceItemsWithCost 
-};
-    partialPaymentInvoices.push(newInvoice);
-    savePartialPaymentInvoices();
-
-    if (advancePayment > 0) {
-        addTransactionToCashBook(`Sale (Inv #${newInvoice.invoiceId}) - ${customerName}`, 'in', advancePayment, new Date().toISOString(), 'cb_sale_' + newInvoice.invoiceId);
+    const createBtn = document.getElementById('btn-add-partial-invoice');
+    isCreatingInvoice = true;
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerText = "Creating Invoice...";
     }
 
-    generateInvoicePDF(newInvoice.invoiceId);
-    renderPartialPaymentTable();
-    clearPartialPaymentForm();
-    refreshAll(); 
+    try {
+        // Database mein mojood sab se bara invoice number dhoond kar +1 karega (Duplicate ID khatam)
+        const highestExistingId = partialPaymentInvoices.reduce((max, inv) => {
+            const num = parseInt(inv.invoiceId, 10);
+            return !isNaN(num) && num > max ? num : max;
+        }, 0);
 
-    if (currentPaymentMode === 'credit') {
-        alert(`New Invoice created for ${customerName} and PDF has been generated. Remaining balance: ${CURRENCY_SYMBOL}${newInvoice.remainingBalance.toFixed(2)}.`);
-    } else {
-        alert(`Cash Sale recorded and PDF invoice has been generated successfully.`);
+        const configuredStart = parseInt(appSettings.nextInvoiceNumber, 10) || 100;
+        const newInvoiceId = Math.max(configuredStart, highestExistingId + 1);
+
+        appSettings.nextInvoiceNumber = newInvoiceId + 1;
+        await saveSettings(); 
+
+        // Stock minus karein
+        partialInvoiceCart.forEach(cartItem => {
+            const product = products.find(p => p.id === cartItem.id);
+            if (product) {
+                product.quantity -= cartItem.quantity;
+            }
+        });
+        await saveProducts();
+
+        const invoiceItemsWithCost = partialInvoiceCart.map(item => ({
+            ...item,
+            originalQuantity: item.quantity, 
+            costAtTimeOfSale: getCostPrice(item.id)
+        }));
+
+        const newInvoice = {
+            invoiceId: newInvoiceId, 
+            customerName: customerName,
+            customerPhone: customerPhone,
+            totalAmount: totalAmount,
+            paidAmount: advancePayment,
+            remainingBalance: totalAmount - advancePayment,
+            status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
+            installments: numInstallments,
+            payments: advancePayment > 0 ? [{ 
+                paymentId: 'pay' + Date.now(), 
+                amount: advancePayment, 
+                date: getLocalDateString() + 'T12:00:00.000Z', 
+                method: paymentMethod, 
+                accountDetails: accountDetails,
+                notes: "Initial Payment" 
+            }] : [],
+            createdAt: getLocalDateString() + 'T12:00:00.000Z',
+            invoiceItems: invoiceItemsWithCost 
+        };
+
+        partialPaymentInvoices.push(newInvoice);
+        await savePartialPaymentInvoices();
+
+        if (advancePayment > 0) {
+            addTransactionToCashBook(`Sale (Inv #${newInvoice.invoiceId}) - ${customerName}`, 'in', advancePayment, new Date().toISOString(), 'cb_sale_' + newInvoice.invoiceId);
+        }
+
+        generateInvoicePDF(newInvoice.invoiceId);
+        renderPartialPaymentTable();
+        clearPartialPaymentForm();
+        refreshAll(); 
+
+        if (currentPaymentMode === 'credit') {
+            alert(`New Invoice #${newInvoiceId} created for ${customerName}. Remaining balance: ${CURRENCY_SYMBOL}${newInvoice.remainingBalance.toFixed(2)}.`);
+        } else {
+            alert(`Cash Sale Invoice #${newInvoiceId} recorded successfully.`);
+        }
+    } catch (err) {
+        console.error("Invoice Error:", err);
+        alert("Invoice create karne mein masla pesh aya: " + err.message);
+    } finally {
+        isCreatingInvoice = false;
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerText = "Create Invoice";
+        }
     }
 }
 
@@ -8113,7 +8143,6 @@ async function handlePasswordUpdateAndLogin() {
 
         document.getElementById('auth-container').style.display = 'none'; 
         document.getElementById('main-app').style.display = 'flex'; 
-        initializeApp(); 
         // ------------------------------------------------
 
     } catch (e) {
@@ -9157,110 +9186,109 @@ if (!isSoftwareActive) return;
     populatePaymentMethods();
     populateExpenseCategoryDropdowns();
 
-    // 5. Event Listeners bind karein
-    document.getElementById('search-input').addEventListener('input', renderProductGrid);
-    document.getElementById('user-search-input').addEventListener('input', renderAllUsersTable);
-    document.getElementById('setting-logo-upload').addEventListener('change', handleLogoUpload);
-    document.getElementById('btn-save-settings').addEventListener('click', saveAppSettings);
-    
-    document.getElementById('btn-add-managed-product').addEventListener('click', addManagedProduct);
-    document.getElementById('btn-save-managed-product').addEventListener('click', saveManagedProductChanges);
-    document.getElementById('btn-cancel-edit-managed-product').addEventListener('click', resetManagedProductForm);
-    document.getElementById('manage-product-search').addEventListener('input', renderManageProductsList);
+    // 5. Event Listeners bind karein (Sirf 1 martaba)
+    if (!isAppInitialized) {
+        document.getElementById('search-input').addEventListener('input', renderProductGrid);
+        document.getElementById('user-search-input').addEventListener('input', renderAllUsersTable);
+        document.getElementById('setting-logo-upload').addEventListener('change', handleLogoUpload);
+        document.getElementById('btn-save-settings').addEventListener('click', saveAppSettings);
+        
+        document.getElementById('btn-add-managed-product').addEventListener('click', addManagedProduct);
+        document.getElementById('btn-save-managed-product').addEventListener('click', saveManagedProductChanges);
+        document.getElementById('btn-cancel-edit-managed-product').addEventListener('click', resetManagedProductForm);
+        document.getElementById('manage-product-search').addEventListener('input', renderManageProductsList);
 
+        document.getElementById('btn-add-partial-invoice').addEventListener('click', addPartialPaymentInvoice);
+        document.getElementById('btn-save-sale-changes').addEventListener('click', saveSaleInvoiceChanges);
+        document.getElementById('btn-clear-partial-form').addEventListener('click', clearPartialPaymentForm);
+        document.getElementById('partial-search-input').addEventListener('input', renderPartialPaymentTable);
+        document.getElementById('btn-close-payment-modal').addEventListener('click', closePaymentModal);
+        document.getElementById('partial-product-search-input').addEventListener('input', renderPartialProductSelector);
 
-    document.getElementById('btn-add-partial-invoice').addEventListener('click', addPartialPaymentInvoice);
-    document.getElementById('btn-save-sale-changes').addEventListener('click', saveSaleInvoiceChanges);
-    document.getElementById('btn-clear-partial-form').addEventListener('click', clearPartialPaymentForm);
-    document.getElementById('partial-search-input').addEventListener('input', renderPartialPaymentTable);
-    document.getElementById('btn-close-payment-modal').addEventListener('click', closePaymentModal);
-    document.getElementById('partial-product-search-input').addEventListener('input', renderPartialProductSelector);
+        document.getElementById('btn-find-invoice-for-return').addEventListener('click', findInvoiceForReturn);
+        document.getElementById('btn-process-return').addEventListener('click', processSellReturn);
+        document.getElementById('btn-cancel-return').addEventListener('click', resetSellReturnForm);
+        document.getElementById('btn-sr-daily-report').addEventListener('click', () => generateSellReturnReportPDF('daily'));
+        document.getElementById('btn-sr-weekly-report').addEventListener('click', () => generateSellReturnReportPDF('weekly'));
+        document.getElementById('btn-sr-monthly-report').addEventListener('click', () => generateSellReturnReportPDF('monthly'));
+        document.getElementById('btn-sr-custom-report').addEventListener('click', () => generateSellReturnReportPDF('custom'));
+        document.getElementById('return-replacement-search-input').addEventListener('input', renderReplacementProductSelector);
 
-    document.getElementById('btn-find-invoice-for-return').addEventListener('click', findInvoiceForReturn);
-    document.getElementById('btn-process-return').addEventListener('click', processSellReturn);
-    document.getElementById('btn-cancel-return').addEventListener('click', resetSellReturnForm);
-    document.getElementById('btn-sr-daily-report').addEventListener('click', () => generateSellReturnReportPDF('daily'));
-    document.getElementById('btn-sr-weekly-report').addEventListener('click', () => generateSellReturnReportPDF('weekly'));
-    document.getElementById('btn-sr-monthly-report').addEventListener('click', () => generateSellReturnReportPDF('monthly'));
-    document.getElementById('btn-sr-custom-report').addEventListener('click', () => generateSellReturnReportPDF('custom'));
-    document.getElementById('return-replacement-search-input').addEventListener('input', renderReplacementProductSelector);
+        document.getElementById('btn-add-expense').addEventListener('click', addExpense);
+        document.getElementById('btn-save-expense-changes').addEventListener('click', saveExpenseChanges);
+        document.getElementById('btn-cancel-expense-edit').addEventListener('click', () => clearExpenseForm(true));
+        document.getElementById('btn-clear-expense-form').addEventListener('click', () => clearExpenseForm(false));
+        document.getElementById('btn-daily-expense-report').addEventListener('click', () => generateExpensePDF('daily'));
+        document.getElementById('btn-weekly-expense-report').addEventListener('click', () => generateExpensePDF('weekly'));
+        document.getElementById('btn-monthly-expense-report').addEventListener('click', () => generateExpensePDF('monthly'));
+        document.getElementById('btn-manage-categories').addEventListener('click', openCategoryModal);
+        document.getElementById('btn-add-category').addEventListener('click', addCategory);
+        document.getElementById('btn-close-category-modal').addEventListener('click', closeCategoryModal);
 
-    document.getElementById('btn-add-expense').addEventListener('click', addExpense);
-    document.getElementById('btn-save-expense-changes').addEventListener('click', saveExpenseChanges);
-    document.getElementById('btn-cancel-expense-edit').addEventListener('click', () => clearExpenseForm(true));
-    document.getElementById('btn-clear-expense-form').addEventListener('click', () => clearExpenseForm(false));
-    document.getElementById('btn-daily-expense-report').addEventListener('click', () => generateExpensePDF('daily'));
-    document.getElementById('btn-weekly-expense-report').addEventListener('click', () => generateExpensePDF('weekly'));
-    document.getElementById('btn-monthly-expense-report').addEventListener('click', () => generateExpensePDF('monthly'));
-    document.getElementById('btn-manage-categories').addEventListener('click', openCategoryModal);
-    document.getElementById('btn-add-category').addEventListener('click', addCategory);
-    document.getElementById('btn-close-category-modal').addEventListener('click', closeCategoryModal);
+        document.getElementById('btn-save-purchaser').addEventListener('click', savePurchaser);
+        document.getElementById('purchase-purchaser-search').addEventListener('input', handlePurchaserSelectionForNewPurchase);
+        document.getElementById('btn-add-purchase-item').addEventListener('click', addPurchaseItemToCart);
+        document.getElementById('purchase-advance-payment').addEventListener('input', renderPurchaseCart);
+        document.getElementById('btn-record-purchase').addEventListener('click', recordPurchase);
+        document.getElementById('btn-save-purchase-changes').addEventListener('click', savePurchaseChanges);
+        document.getElementById('btn-clear-purchase-form').addEventListener('click', clearPurchaseForm);
+        document.getElementById('purchase-history-search').addEventListener('input', renderPurchaseHistoryTable);
 
-    document.getElementById('btn-save-purchaser').addEventListener('click', savePurchaser);
-    document.getElementById('purchase-purchaser-search').addEventListener('input', handlePurchaserSelectionForNewPurchase);
-    document.getElementById('btn-add-purchase-item').addEventListener('click', addPurchaseItemToCart);
-    document.getElementById('purchase-advance-payment').addEventListener('input', renderPurchaseCart);
-    document.getElementById('btn-record-purchase').addEventListener('click', recordPurchase);
-    document.getElementById('btn-save-purchase-changes').addEventListener('click', savePurchaseChanges);
-    document.getElementById('btn-clear-purchase-form').addEventListener('click', clearPurchaseForm);
-    document.getElementById('purchase-history-search').addEventListener('input', renderPurchaseHistoryTable);
+        document.getElementById('add-payment-purchaser-search').addEventListener('input', () => handlePurchaserSearch('add-payment-purchaser-search', 'purchaser-list-add-payment'));
+        document.getElementById('add-payment-amount-purchaser').addEventListener('input', updateLiveBalancePreview);
+        document.getElementById('btn-record-purchaser-payment').addEventListener('click', recordPurchaserPayment);
+        document.getElementById('btn-purchaser-daily-statement').addEventListener('click', () => generatePurchaserStatementPDF('daily'));
+        document.getElementById('btn-purchaser-weekly-statement').addEventListener('click', () => generatePurchaserStatementPDF('weekly'));
+        document.getElementById('btn-purchaser-monthly-statement').addEventListener('click', () => generatePurchaserStatementPDF('monthly'));
+        document.getElementById('btn-purchaser-full-statement').addEventListener('click', () => generatePurchaserStatementPDF('full'));
+        
+        document.getElementById('purchaser-report-search').addEventListener('input', renderPurchaserReportTable);
+        document.getElementById('btn-search-purchaser-report').addEventListener('click', searchAndGeneratePurchaserReport);
+        document.getElementById('btn-daily-purchase-report').addEventListener('click', () => generatePurchaserReportPDF('daily'));
+        document.getElementById('btn-weekly-purchase-report').addEventListener('click', () => generatePurchaserReportPDF('weekly'));
+        document.getElementById('btn-monthly-purchase-report').addEventListener('click', () => generatePurchaserReportPDF('monthly'));
 
-    document.getElementById('add-payment-purchaser-search').addEventListener('input', () => handlePurchaserSearch('add-payment-purchaser-search', 'purchaser-list-add-payment'));
-    document.getElementById('add-payment-amount-purchaser').addEventListener('input', updateLiveBalancePreview);
-    document.getElementById('btn-record-purchaser-payment').addEventListener('click', recordPurchaserPayment);
-    document.getElementById('btn-purchaser-daily-statement').addEventListener('click', () => generatePurchaserStatementPDF('daily'));
-    document.getElementById('btn-purchaser-weekly-statement').addEventListener('click', () => generatePurchaserStatementPDF('weekly'));
-    document.getElementById('btn-purchaser-monthly-statement').addEventListener('click', () => generatePurchaserStatementPDF('monthly'));
-    document.getElementById('btn-purchaser-full-statement').addEventListener('click', () => generatePurchaserStatementPDF('full'));
-    
-    document.getElementById('purchaser-report-search').addEventListener('input', renderPurchaserReportTable);
-    document.getElementById('btn-search-purchaser-report').addEventListener('click', searchAndGeneratePurchaserReport);
-    document.getElementById('btn-daily-purchase-report').addEventListener('click', () => generatePurchaserReportPDF('daily'));
-    document.getElementById('btn-weekly-purchase-report').addEventListener('click', () => generatePurchaserReportPDF('weekly'));
-    document.getElementById('btn-monthly-purchase-report').addEventListener('click', () => generatePurchaserReportPDF('monthly'));
+        document.getElementById('btn-add-gatepass-item').addEventListener('click', addGatePassItem);
+        document.getElementById('btn-save-gatepass').addEventListener('click', saveAndGenerateGatePass);
+        document.getElementById('btn-clear-gatepass-list').addEventListener('click', clearGatePassList);
+        document.getElementById('btn-filter-gatepass-history').addEventListener('click', renderGatePassHistory);
 
-    document.getElementById('btn-add-gatepass-item').addEventListener('click', addGatePassItem);
-    document.getElementById('btn-save-gatepass').addEventListener('click', saveAndGenerateGatePass);
-    document.getElementById('btn-clear-gatepass-list').addEventListener('click', clearGatePassList);
-    document.getElementById('btn-filter-gatepass-history').addEventListener('click', renderGatePassHistory);
+        document.getElementById('btn-close-stock-modal').addEventListener('click', closeStockUpdateModal);
+        document.getElementById('btn-submit-stock-update').addEventListener('click', handleStockUpdate);
 
-    document.getElementById('btn-close-stock-modal').addEventListener('click', closeStockUpdateModal);
-    document.getElementById('btn-submit-stock-update').addEventListener('click', handleStockUpdate);
+        initializeAllReports();
+        initializeProfitLossStatement();
+        
+        document.getElementById('inventory-costing-generate-pdf').addEventListener('click', generateInventoryCostingPDF);
 
-    initializeAllReports();
-    initializeProfitLossStatement();
-    
-    document.getElementById('inventory-costing-generate-pdf').addEventListener('click', generateInventoryCostingPDF);
+        document.getElementById('btn-save-data').addEventListener('click', saveAllDataToFile);
+        document.getElementById('file-load-data').addEventListener('change', loadAllDataFromFile);
 
-    document.getElementById('btn-save-data').addEventListener('click', saveAllDataToFile);
-    document.getElementById('file-load-data').addEventListener('change', loadAllDataFromFile);
+        document.getElementById('add-payment-method-purchaser').addEventListener('change', (e) => handlePaymentMethodChange(e.target, document.getElementById('purchase-add-payment-details-container')));
 
-    document.getElementById('add-payment-method-purchaser').addEventListener('change', (e) => handlePaymentMethodChange(e.target, document.getElementById('purchase-add-payment-details-container')));
+        document.getElementById('btn-add-cash-in').addEventListener('click', addCashToBook);
+        document.getElementById('btn-add-cash-out').addEventListener('click', addCashOut);
+        document.getElementById('btn-daily-cash-report').addEventListener('click', () => generateCashBookReport('daily'));
+        document.getElementById('btn-weekly-cash-report').addEventListener('click', () => generateCashBookReport('weekly'));
+        document.getElementById('btn-monthly-cash-report').addEventListener('click', () => generateCashBookReport('monthly'));
+        document.getElementById('btn-custom-cash-report').addEventListener('click', () => generateCashBookReport('custom'));
 
-    document.getElementById('btn-add-cash-in').addEventListener('click', addCashToBook);
-    document.getElementById('btn-add-cash-out').addEventListener('click', addCashOut);
-    document.getElementById('btn-daily-cash-report').addEventListener('click', () => generateCashBookReport('daily'));
-    document.getElementById('btn-weekly-cash-report').addEventListener('click', () => generateCashBookReport('weekly'));
-    document.getElementById('btn-monthly-cash-report').addEventListener('click', () => generateCashBookReport('monthly'));
-    document.getElementById('btn-custom-cash-report').addEventListener('click', () => generateCashBookReport('custom'));
+        const partialMethodEl = document.getElementById('partial-payment-method');
+        if (partialMethodEl) {
+            partialMethodEl.addEventListener('change', (e) => handlePaymentMethodChange(e.target, document.getElementById('partial-payment-details-container')));
+        }
 
-    // FIX: Active session me POS dropdown details na khulne ka bug yahan fix kiya
-    const partialMethodEl = document.getElementById('partial-payment-method');
-    if (partialMethodEl) {
-        partialMethodEl.addEventListener('change', (e) => handlePaymentMethodChange(e.target, document.getElementById('partial-payment-details-container')));
+        initializeProductStockReport();
+
+        isAppInitialized = true; // Guard close
     }
 
     // Default modes toggling
     togglePaymentMode('cash');
-    initializeProductStockReport();
-
-    // 6. Trial Validity check dhoondh kar chalaein (Isko band kar diya taake Naya Cloud System show ho)
-    // isTrialValid(); 
 
     updateUserNav();
     
-   // 7. Dashboard aur tamam logs ka data seedha Firebase se load karein (Data loss se bachne ke liye)
-// 7. Dashboard aur tamam logs ka data seedha Firebase se load karein (Data loss se bachne ke liye)
+    // 7. Dashboard aur tamam logs ka data seedha Firebase se load karein
     await dbFetchInvoices();
     await dbFetchExpenses();
     await dbFetchPurchaseLog();
@@ -9270,8 +9298,6 @@ if (!isSoftwareActive) return;
     await dbFetchGatePasses();
     await dbFetchStockUpdates();
     await dbFetchSellReturns();
-    
-// sanitizeHeavyImages(); // Is line ko comment out kar dein
     
     refreshAll();
 }
