@@ -3169,17 +3169,32 @@ function getUserSpecificKey(baseKey) {
 }
 
 async function dbFetchData(baseKey) {
-    if (!loggedInUser) return [];
-    if (!shopOwnerId) return []; // Master Admin ka ID zaroori hai
+    if (!loggedInUser || !shopOwnerId) return [];
     
     const key = getUserSpecificKey(baseKey);
     try {
-        // Ab yahan loggedInUser.id ki jagah shopOwnerId istemal hoga
         const doc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).get();
-        if (doc.exists) {
-            const data = doc.data();
-            if (data && data.payload) {
-                return JSON.parse(data.payload);
+        if (!doc.exists) return [];
+
+        const docData = doc.data();
+        if (!docData) return [];
+
+        // Case A: Agar data normal tha (Single payload)
+        if (!docData.isChunked && docData.payload) {
+            return JSON.parse(docData.payload);
+        }
+
+        // Case B: Agar data 1MB se bara tha (Chunked data assemble karein)
+        if (docData.isChunked && docData.totalChunks) {
+            let combinedJSON = '';
+            for (let i = 0; i < docData.totalChunks; i++) {
+                const chunkDoc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(`${key}_chunk_${i}`).get();
+                if (chunkDoc.exists && chunkDoc.data().chunk) {
+                    combinedJSON += chunkDoc.data().chunk;
+                }
+            }
+            if (combinedJSON) {
+                return JSON.parse(combinedJSON);
             }
         }
     } catch (e) {
@@ -3231,18 +3246,49 @@ if (appSettings.invoiceNote === undefined) appSettings.invoiceNote = "No return 
 async function saveData(key, data) {
     try {
         const jsonString = JSON.stringify(data);
-        localStorage.setItem(key, jsonString);
-
-        const dataSizeInMB = new Blob([jsonString]).size / (1024 * 1024);
-        if (dataSizeInMB >= 0.95) {
-            alert(`⚠️ WARNING: Aapka data (${dataSizeInMB.toFixed(2)} MB) Cloud ki limit se bada ho gaya hai!`);
-            return; 
+        
+        // 1. LocalStorage Quota Crash se bachao
+        try {
+            localStorage.setItem(key, jsonString);
+        } catch (localErr) {
+            console.warn("LocalStorage full hai, lekin Cloud par save ho raha hai:", localErr);
         }
 
-        if (shopOwnerId) { // Yahan shopOwnerId aayega
+        if (!shopOwnerId) return;
+
+        // 2. Data Chunking System (1MB se bara hone par tukron mein save karega taake delete na ho)
+        const CHUNK_SIZE = 700000; // ~700 KB per chunk (Firestore limit safe)
+        
+        if (jsonString.length <= CHUNK_SIZE) {
+            // Normal Size: Ek hi document mein save hoga
             await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).set({ 
-                payload: jsonString 
+                payload: jsonString,
+                isChunked: false,
+                totalChunks: 1,
+                updatedAt: new Date().toISOString()
             });
+        } else {
+            // Large Size: Data ko tukron mein divide kar ke Firestore mein save karega
+            const totalChunks = Math.ceil(jsonString.length / CHUNK_SIZE);
+            const batch = db.batch();
+
+            // Master Index Doc
+            const masterRef = db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key);
+            batch.set(masterRef, {
+                isChunked: true,
+                totalChunks: totalChunks,
+                updatedAt: new Date().toISOString()
+            });
+
+            // Chunks Documents
+            for (let i = 0; i < totalChunks; i++) {
+                const chunkData = jsonString.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                const chunkRef = db.collection('appData').doc(shopOwnerId).collection('datasets').doc(`${key}_chunk_${i}`);
+                batch.set(chunkRef, { chunk: chunkData });
+            }
+
+            await batch.commit();
+            console.log(`Large data successfully chunked & saved in ${totalChunks} parts.`);
         }
     } catch (e) {
         console.error("Error saving data to Firebase Cloud:", e);
@@ -3711,10 +3757,15 @@ function addManagedProduct() {
         return;
     }
 
+   // Agar image Cloudinary ka link nahi hai to database mein upload na karein
+    const safeImageURL = (currentImageBase64 && currentImageBase64.startsWith('http')) 
+        ? currentImageBase64 
+        : null;
+
     const newProduct = {
         id: 'p' + Date.now(),
         name: name,
-        image_path: currentImageBase64,
+        image_path: safeImageURL,
         price: price,
         costPrice: costPrice,
         quantity: 0, 
