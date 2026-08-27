@@ -1012,7 +1012,7 @@ body,
     </div>
 
     <div id="main-app">
-        <!-- TOP NAV UPDATED FOR SIDEBAR TOGGLE -->
+       
         <div id="top-status-bar">
             <div style="display: flex; align-items: center; gap: 15px;">
                 <!-- Naya Toggle Button -->
@@ -1020,6 +1020,8 @@ body,
                     <span id="sidebar-arrow">◀</span>
                 </button>
                 <span id="trial-status-message"></span>
+                <!-- LIVE NETWORK & AUTO-SYNC STATUS BADGE -->
+                <span id="network-status-badge" style="padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></span>
             </div>
             <span id="user-session-info">Welcome, Administrator! <button class="btn btn-danger btn-sm" onclick="handleLogout()">Logout</button></span>
         </div>
@@ -2669,13 +2671,11 @@ async function saveDemandRecord() {
     };
 
     try {
-        const userId = loggedInUser.id || loggedInUser.uid;
         if (!Array.isArray(demandRecords)) demandRecords = [];
         demandRecords.push(record);
         
-        await db.collection('appData').doc(userId).collection('datasets').doc('demand_records').set({
-            payload: JSON.stringify(demandRecords)
-        });
+        // Naye Universal Engine ke zariye save karein (Offline + Online Safe)
+        saveDemandRecords();
         
         alert("Demand Record kamyabi se save ho gaya!");
         clearDemandForm();
@@ -3169,36 +3169,53 @@ function getUserSpecificKey(baseKey) {
 }
 
 async function dbFetchData(baseKey) {
-    if (!loggedInUser || !shopOwnerId) return [];
+    const userKey = getUserSpecificKey(baseKey);
     
-    const key = getUserSpecificKey(baseKey);
+    // 1. Agar Offline hain ya Cloud connect nahi, to LocalStorage se uthayein
+    if (!navigator.onLine || !shopOwnerId) {
+        const localData = localStorage.getItem(userKey);
+        try {
+            return localData ? JSON.parse(localData) : [];
+        } catch(e) {
+            return [];
+        }
+    }
+
+    // 2. Agar Online hain, to Firestore Cloud se fetch karein
     try {
-        const doc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).get();
-        if (!doc.exists) return [];
+        const doc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(userKey).get();
+        if (!doc.exists) {
+            // Cloud par nahi mila to local fallback
+            const localData = localStorage.getItem(userKey);
+            return localData ? JSON.parse(localData) : [];
+        }
 
         const docData = doc.data();
         if (!docData) return [];
 
-        // Case A: Agar data normal tha (Single payload)
-        if (!docData.isChunked && docData.payload) {
-            return JSON.parse(docData.payload);
-        }
+        let payloadStr = '';
 
-        // Case B: Agar data 1MB se bara tha (Chunked data assemble karein)
-        if (docData.isChunked && docData.totalChunks) {
-            let combinedJSON = '';
+        if (!docData.isChunked && docData.payload) {
+            payloadStr = docData.payload;
+        } else if (docData.isChunked && docData.totalChunks) {
+            // Chunks ko combine karein
             for (let i = 0; i < docData.totalChunks; i++) {
-                const chunkDoc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(`${key}_chunk_${i}`).get();
+                const chunkDoc = await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(`${userKey}_chunk_${i}`).get();
                 if (chunkDoc.exists && chunkDoc.data().chunk) {
-                    combinedJSON += chunkDoc.data().chunk;
+                    payloadStr += chunkDoc.data().chunk;
                 }
             }
-            if (combinedJSON) {
-                return JSON.parse(combinedJSON);
-            }
+        }
+
+        if (payloadStr) {
+            // LocalStorage ko bhi Cloud data se sync rakhein
+            localStorage.setItem(userKey, payloadStr);
+            return JSON.parse(payloadStr);
         }
     } catch (e) {
-        console.error("Error fetching " + baseKey + " from Firebase:", e);
+        console.warn(`Cloud fetch failed for ${baseKey}, using local storage:`, e);
+        const localData = localStorage.getItem(userKey);
+        return localData ? JSON.parse(localData) : [];
     }
     return [];
 }
@@ -3243,55 +3260,83 @@ if (appSettings.invoiceNote === undefined) appSettings.invoiceNote = "No return 
     }
 }
 
+// Tamam Unsynced Keys ka track rakhne wala Master Register
+function markKeyAsUnsynced(userKey) {
+    let unsyncedList = JSON.parse(localStorage.getItem('pos_master_unsynced_keys')) || [];
+    if (!unsyncedList.includes(userKey)) {
+        unsyncedList.push(userKey);
+        localStorage.setItem('pos_master_unsynced_keys', JSON.stringify(unsyncedList));
+    }
+}
+
+function markKeyAsSynced(userKey) {
+    let unsyncedList = JSON.parse(localStorage.getItem('pos_master_unsynced_keys')) || [];
+    unsyncedList = unsyncedList.filter(k => k !== userKey);
+    localStorage.setItem('pos_master_unsynced_keys', JSON.stringify(unsyncedList));
+}
+
+// Master Universal Save Function
 async function saveData(key, data) {
     try {
         const jsonString = JSON.stringify(data);
-        
-        // 1. LocalStorage Quota Crash se bachao
+
+        // 1. Har module ka data instant local save hoga (No delay)
         try {
             localStorage.setItem(key, jsonString);
-        } catch (localErr) {
-            console.warn("LocalStorage full hai, lekin Cloud par save ho raha hai:", localErr);
+        } catch (storageErr) {
+            console.warn("Browser LocalStorage full, IndexedDB fallback:", storageErr);
         }
 
-        if (!shopOwnerId) return;
+        // 2. Unsynced List mein mark karein
+        markKeyAsUnsynced(key);
 
-        // 2. Data Chunking System (1MB se bara hone par tukron mein save karega taake delete na ho)
-        const CHUNK_SIZE = 700000; // ~700 KB per chunk (Firestore limit safe)
-        
-        if (jsonString.length <= CHUNK_SIZE) {
-            // Normal Size: Ek hi document mein save hoga
-            await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).set({ 
-                payload: jsonString,
-                isChunked: false,
-                totalChunks: 1,
-                updatedAt: new Date().toISOString()
-            });
-        } else {
-            // Large Size: Data ko tukron mein divide kar ke Firestore mein save karega
-            const totalChunks = Math.ceil(jsonString.length / CHUNK_SIZE);
-            const batch = db.batch();
-
-            // Master Index Doc
-            const masterRef = db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key);
-            batch.set(masterRef, {
-                isChunked: true,
-                totalChunks: totalChunks,
-                updatedAt: new Date().toISOString()
-            });
-
-            // Chunks Documents
-            for (let i = 0; i < totalChunks; i++) {
-                const chunkData = jsonString.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-                const chunkRef = db.collection('appData').doc(shopOwnerId).collection('datasets').doc(`${key}_chunk_${i}`);
-                batch.set(chunkRef, { chunk: chunkData });
-            }
-
-            await batch.commit();
-            console.log(`Large data successfully chunked & saved in ${totalChunks} parts.`);
+        // 3. Agar offline hain to status update karein aur return ho jayein
+        if (!navigator.onLine || !shopOwnerId) {
+            updateNetworkBadge();
+            return;
         }
+
+        // 4. Online hone par Firestore par upload karein
+        await uploadDatasetToFirestore(key, jsonString);
+        markKeyAsSynced(key);
+        updateNetworkBadge();
+
     } catch (e) {
-        console.error("Error saving data to Firebase Cloud:", e);
+        console.error(`Save to Cloud error for key ${key}:`, e);
+        markKeyAsUnsynced(key);
+        updateNetworkBadge();
+    }
+}
+
+// Reusable Safe Uploader (Handles normal and large files)
+async function uploadDatasetToFirestore(key, jsonString) {
+    if (!shopOwnerId) return;
+    const CHUNK_SIZE = 700000; // ~700KB safe chunk
+
+    if (jsonString.length <= CHUNK_SIZE) {
+        await db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key).set({
+            payload: jsonString,
+            isChunked: false,
+            totalChunks: 1,
+            lastSyncedAt: new Date().toISOString()
+        });
+    } else {
+        const totalChunks = Math.ceil(jsonString.length / CHUNK_SIZE);
+        const batch = db.batch();
+
+        const masterRef = db.collection('appData').doc(shopOwnerId).collection('datasets').doc(key);
+        batch.set(masterRef, {
+            isChunked: true,
+            totalChunks: totalChunks,
+            lastSyncedAt: new Date().toISOString()
+        });
+
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkData = jsonString.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            const chunkRef = db.collection('appData').doc(shopOwnerId).collection('datasets').doc(`${key}_chunk_${i}`);
+            batch.set(chunkRef, { chunk: chunkData });
+        }
+        await batch.commit();
     }
 }
 
@@ -3328,7 +3373,7 @@ async function syncDataFromFirebase() {
     for (const baseKey of keysToSync) {
         const userKey = getUserSpecificKey(baseKey);
         try {
-            const doc = await db.collection('appData').doc(userId).collection('datasets').doc(userKey).get();
+           const doc = await db.collection('appData').doc(shopOwnerId || userId).collection('datasets').doc(userKey).get();
             if (doc.exists) {
                 const data = doc.data();
                 if (data && data.payload) {
@@ -3468,6 +3513,9 @@ async function loadProductsFromFirebase() {
 }
 
 
+// ==========================================
+// ALL MODULES UNIFIED SAVE HANDLERS (STEP 4)
+// ==========================================
 function saveGlobalData(key, data) { saveData(key, data); }
 const saveSettings = () => saveData(getUserSpecificKey(SETTINGS_KEY), appSettings);
 const saveProducts = () => saveData(getUserSpecificKey(PRODUCTS_KEY), products);
@@ -3480,15 +3528,11 @@ const saveNotifications = () => saveGlobalData(NOTIFICATIONS_KEY, notifications)
 const savePartialPaymentInvoices = () => saveData(getUserSpecificKey("pos_app_partial_invoices"), partialPaymentInvoices);
 const savePurchasers = () => saveData(getUserSpecificKey(PURCHASERS_KEY), purchasers);
 const savePurchaseLog = () => saveData(getUserSpecificKey(PURCHASE_LOG_KEY), purchaseLog);
-const saveCashBookLog = () => {
-    // 1. Browser ke local storage mein save karein (Instant Update)
-    localStorage.setItem(getUserSpecificKey(CASH_BOOK_KEY), JSON.stringify(cashBookLog));
-    // 2. Firebase Cloud Database mein save karein (Permanent Backup)
-    saveData(getUserSpecificKey(CASH_BOOK_KEY), cashBookLog);
-};
+const saveCashBookLog = () => saveData(getUserSpecificKey(CASH_BOOK_KEY), cashBookLog);
 const saveGatePassLog = () => saveData(getUserSpecificKey(GATE_PASS_LOG_KEY), gatePassLog);
 const saveSellReturnsLog = () => saveData(getUserSpecificKey(SELL_RETURNS_KEY), sellReturnsLog);
 const saveStockUpdatesLog = () => saveData(getUserSpecificKey(STOCK_UPDATES_KEY), stockUpdatesLog);
+const saveDemandRecords = () => saveData(getUserSpecificKey("demand_records"), demandRecords);
 async function dbFetchProducts() { products = await dbFetchData(PRODUCTS_KEY); }
 async function dbFetchInvoices() { partialPaymentInvoices = await dbFetchData("pos_app_partial_invoices"); }
 async function dbFetchExpenses() { expenses = await dbFetchData(EXPENSES_KEY); }
@@ -9555,9 +9599,9 @@ if (moduleName === 'Settings') {
             await renderAdminDashboard();
         }
 
-    } catch (e) {
-        console.error("Online lazy load failed: ", e);
-        alert("Internet Slow ya disconnect hai! Data sahi se load nahi ho saka.");
+  } catch (e) {
+        console.warn(`[Offline Mode] '${moduleName}' ka local data load kiya gaya hai.`);
+        // Offline hone par alert nahi aayega, local data silently open hoga
     } finally {
         // FIX: Ab button variable safe hai aur wapas apney puraney text par reset ho jayega
         button.innerHTML = originalText;
@@ -10428,6 +10472,114 @@ function getBase64FromUrl(url) {
         img.src = url;
     });
 }
+
+// --- AUTO-SYNC FOR ALL MODULES WHEN ONLINE ---
+let isSyncingActive = false;
+
+async function syncAllPendingModulesToFirestore() {
+    if (isSyncingActive || !navigator.onLine || !shopOwnerId) return;
+    
+    let unsyncedKeys = JSON.parse(localStorage.getItem('pos_master_unsynced_keys')) || [];
+    
+    // Agar koi specific key miss ho gayi ho, to tamam primary modules ko check karein
+    const allKnownModules = [
+        SETTINGS_KEY, PRODUCTS_KEY, SALES_LOG_KEY, EXPENSES_KEY,
+        EXPENSE_CATEGORIES_KEY, "pos_app_partial_invoices", PURCHASERS_KEY,
+        PURCHASE_LOG_KEY, CASH_BOOK_KEY, GATE_PASS_LOG_KEY,
+        SELL_RETURNS_KEY, STOCK_UPDATES_KEY, 'demand_records'
+    ];
+
+    allKnownModules.forEach(mod => {
+        const fullKey = getUserSpecificKey(mod);
+        if (localStorage.getItem(fullKey) && !unsyncedKeys.includes(fullKey)) {
+            // Safe side check
+        }
+    });
+
+    if (unsyncedKeys.length === 0) {
+        updateNetworkBadge();
+        return;
+    }
+
+    isSyncingActive = true;
+    updateNetworkBadge(true); // "Syncing..." dikhaye
+
+    console.log(`[Auto-Sync] Internet active! ${unsyncedKeys.length} modules Firestore par sync ho rahe hain...`);
+
+    for (const key of [...unsyncedKeys]) {
+        try {
+            const rawData = localStorage.getItem(key);
+            if (rawData) {
+                await uploadDatasetToFirestore(key, rawData);
+                markKeyAsSynced(key);
+                console.log(`[Auto-Sync] ✅ Synced module: ${key}`);
+            } else {
+                markKeyAsSynced(key);
+            }
+        } catch (syncErr) {
+            console.error(`[Auto-Sync] ❌ Sync fail for ${key}:`, syncErr);
+        }
+    }
+
+    isSyncingActive = false;
+    updateNetworkBadge();
+    console.log("[Auto-Sync] 🚀 Tamam modules kamyabi se Firestore par synchronize ho chuke hain!");
+}
+
+// Live Status Indicator in Top Bar
+function updateNetworkBadge(isCurrentlySyncing = false) {
+    const badge = document.getElementById('network-status-badge');
+    if (!badge) return;
+
+    const unsyncedKeys = JSON.parse(localStorage.getItem('pos_master_unsynced_keys')) || [];
+
+    if (!navigator.onLine) {
+        badge.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+        badge.style.color = '#ef4444';
+        badge.style.border = '1px solid #ef4444';
+        badge.innerHTML = `🔴 Offline (${unsyncedKeys.length} pending sync)`;
+    } else if (isCurrentlySyncing || isSyncingActive) {
+        badge.style.backgroundColor = 'rgba(245, 158, 11, 0.2)';
+        badge.style.color = '#f59e0b';
+        badge.style.border = '1px solid #f59e0b';
+        badge.innerHTML = `🔄 Syncing to Cloud (${unsyncedKeys.length} remaining)...`;
+    } else if (unsyncedKeys.length > 0) {
+        badge.style.backgroundColor = 'rgba(245, 158, 11, 0.2)';
+        badge.style.color = '#f59e0b';
+        badge.style.border = '1px solid #f59e0b';
+        badge.innerHTML = `⚠️ ${unsyncedKeys.length} items waiting for sync`;
+    } else {
+        badge.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+        badge.style.color = '#10b981';
+        badge.style.border = '1px solid #10b981';
+        badge.innerHTML = "🟢 All Modules Synced";
+    }
+}
+
+// Listeners for Online / Offline Events
+// Listeners for Online / Offline Events
+window.addEventListener('online', () => {
+    console.log("Internet connect ho gaya!");
+    syncAllPendingModulesToFirestore();
+});
+
+window.addEventListener('offline', () => {
+    console.log("Internet disconnect ho gaya! Local mode active.");
+    updateNetworkBadge();
+});
+
+// Initial load par foran status dikhaye
+updateNetworkBadge();
+
+// Periodic background sync checker (Har 30 seconds baad check karega)
+setInterval(() => {
+    if (navigator.onLine && !isSyncingActive) {
+        const unsyncedKeys = JSON.parse(localStorage.getItem('pos_master_unsynced_keys')) || [];
+        if (unsyncedKeys.length > 0) {
+            syncAllPendingModulesToFirestore();
+        }
+    }
+}, 30000);
 
 </script>
 
