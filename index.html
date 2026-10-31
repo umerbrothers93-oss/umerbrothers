@@ -941,11 +941,11 @@ body,
 </head>
 <body>
     <!-- CLOUD FEE LOCK SCREEN -->
-<div id="lock-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-color); z-index:999999; flex-direction:column; justify-content:center; align-items:center; color:white; text-align:center;">
-    <h1 style="color: var(--danger-color); font-size: 3.5rem; margin-bottom: 10px;">Software Locked</h1>
-    <h2 style="color: var(--text-light); margin-bottom: 20px;">Please pay cloud fees to continue.</h2>
-    <p style="color: var(--text-color); font-size: 1.2rem;">"Your software subscription has expired. Please contact the developer to reactivate the service."
-</p>
+<!-- CLOUD FEE LOCK SCREEN -->
+<div id="lock-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-color); z-index:999999; flex-direction:column; justify-content:center; align-items:center; color:white; text-align:center; padding: 20px;">
+    <h1 style="color: var(--danger-color); font-size: 3.2rem; margin-bottom: 15px; font-weight: 800;">Software Expired</h1>
+    <h2 style="color: var(--text-light); margin-bottom: 15px; font-size: 1.8rem;">Your software has expired.</h2>
+    <p style="color: var(--text-color); font-size: 1.2rem;">Please renew your subscription to continue using the software.</p>
 </div>
 
     <div id="auth-container">
@@ -10747,8 +10747,11 @@ function checkCloudFeeStatus(adminData) {
         if (mainApp) mainApp.style.display = 'none';
         if (lockScreen) {
             lockScreen.style.display = 'flex';
-            lockScreen.querySelector('h1').textContent = "Software Terminated / Locked";
-            lockScreen.querySelector('h2').textContent = "Super Admin has disabled your software license.";
+            lockScreen.querySelector('h1').textContent = "Software Expired";
+            lockScreen.querySelector('h2').textContent = "Your software has expired.";
+            if (lockScreen.querySelector('p')) {
+                lockScreen.querySelector('p').textContent = "Please renew your subscription to continue using the software.";
+            }
         }
         return false;
     }
@@ -10770,8 +10773,11 @@ function checkCloudFeeStatus(adminData) {
         if (mainApp) mainApp.style.display = 'none';
         if (lockScreen) {
             lockScreen.style.display = 'flex';
-            lockScreen.querySelector('h1').textContent = "Software Subscription Expired";
-            lockScreen.querySelector('h2').textContent = "Please pay cloud fees / contact Super Admin to renew.";
+            lockScreen.querySelector('h1').textContent = "Software Expired";
+            lockScreen.querySelector('h2').textContent = "Your software has expired.";
+            if (lockScreen.querySelector('p')) {
+                lockScreen.querySelector('p').textContent = "Please renew your subscription to continue using the software.";
+            }
         }
         return false;
     } else {
