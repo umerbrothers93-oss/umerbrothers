@@ -1045,8 +1045,9 @@ body,
                         </div>
                     </div>
                     <!-- PRODUCTS/REPORTS DROPDOWN END -->
-                    <button class="tab-link" onclick="openModule(event, 'PartialPayments')">💰 POS</button>                    
-                    <button class="tab-link" onclick="openModule(event, 'SellReturn')">↩️ Sell Return</button> <!-- NEW SELL RETURN BUTTON -->
+                   <button class="tab-link" onclick="openModule(event, 'PartialPayments')">💰 POS</button>                    
+<button class="tab-link" onclick="openModule(event, 'SalesLedger')">📑 Sales & Ledger</button>
+<button class="tab-link" onclick="openModule(event, 'SellReturn')">↩️ Sell Return</button>
 
                     <button class="tab-link" onclick="openModule(event, 'AllReports')">📈 All Reports</button>
                     
@@ -1107,6 +1108,7 @@ body,
 
                     <button class="tab-link" onclick="openModule(event, 'Settings')">⚙️ Settings</button>
                     <button class="tab-link admin-only" onclick="openModule(event, 'AdminDashboard')">👑 Admin Dashboard</button>
+                    <button class="tab-link superadmin-only" id="superadmin-tab-btn" style="display: none; background: rgba(239, 68, 68, 0.2); border-left: 3px solid #ef4444;" onclick="openModule(event, 'SuperAdminPanel')">🛡️ Super Admin Control</button>
                 </div>
             </div>
 
@@ -1141,9 +1143,6 @@ body,
             <button class="btn btn-info" onclick="generateCashBookHistoryPDF()">Generate PDF Report</button>
         </div>
     </div>
-
-
-
     
     <!-- Detailed Ledger Table without Running Balance & Totals -->
     <div class="table-container" style="flex-grow: 1; margin-top:20px;">
@@ -1405,11 +1404,10 @@ body,
                 <!-- END NEW MANAGE PRODUCTS MODULE -->
 
 
-                <!-- NEW: Partial Payments Module -->
-<div id="PartialPayments" class="module-content">
-    <h2 class="panel-title">💰 POS</h2>
-    
-                    <!-- Invoice Creation Form -->
+               <!-- START POS MODULE -->
+                <div id="PartialPayments" class="module-content">
+                    <h2 class="panel-title">💰 POS</h2>
+                    
                     <div class="manage-form" style="margin-bottom: 20px;">
                         <h3 id="partial-invoice-form-title" class="panel-title" style="font-size: 1.2rem;">Create New Customer Invoice</h3>
 
@@ -1418,20 +1416,17 @@ body,
                             <button class="btn btn-secondary" id="mode-credit-btn" onclick="togglePaymentMode('credit')">Credit (Partial Payment)</button>
                         </div>
 
-                        <!-- NEW PAYMENT METHOD FIELDS -->
-                       <label for="partial-payment-method">Payment Method (Bank/Cash):</label>
-<select id="partial-payment-method" class="form-control">
-    <!-- Options will be populated by JS -->
-</select>
-<div id="partial-payment-details-container" style="display:none; grid-column: 1 / -1; margin-top: 10px;">
-   <div class="form-grid">
-        <label for="partial-account-details">Account / Txn ID (Optional):</label>
-        <input type="text" id="partial-account-details" class="form-control" placeholder="Account Number ya ID likhein">
-   </div>
-</div>
+                        <label for="partial-payment-method">Payment Method (Bank/Cash):</label>
+                        <select id="partial-payment-method" class="form-control">
+                            <!-- Options populated by JS -->
+                        </select>
+                        <div id="partial-payment-details-container" style="display:none; grid-column: 1 / -1; margin-top: 10px;">
+                           <div class="form-grid">
+                                <label for="partial-account-details">Account / Txn ID (Optional):</label>
+                                <input type="text" id="partial-account-details" class="form-control" placeholder="Account Number ya ID likhein">
+                           </div>
+                        </div>
 
-
-                        <!-- Product Selection Area -->
                         <div id="partial-product-selection">
                             <div class="product-selector-panel">
                                 <h3>Select Products</h3>
@@ -1451,16 +1446,57 @@ body,
                             </div>
                         </div>
 
-                        <!-- Credit-specific fields -->
                         <div id="credit-only-fields" style="display: none;">
-    <hr style="border-color: var(--border-color); margin: 20px 0;">
-    <h3 class="panel-title" style="font-size: 1.1rem; color: var(--text-color);">Customer Information & Payment Terms</h3>
-    <div class="form-grid">
-        <label for="partial-customer-name">Customer Name:</label><input type="text" id="partial-customer-name" class="form-control" placeholder="Customer's full name">
-        <label for="partial-customer-phone">Customer Phone:</label><input type="tel" id="partial-customer-phone" class="form-control" placeholder="Searchable phone number">
-        <label for="partial-advance-payment">Advance Payment:</label><input type="number" id="partial-advance-payment" class="form-control" placeholder="First payment received">
-    </div>
-</div>
+                            <hr style="border-color: var(--border-color); margin: 20px 0;">
+                            <h3 class="panel-title" style="font-size: 1.1rem; color: var(--text-color);">Customer Information & Payment Terms</h3>
+                            <div class="form-grid">
+                                <label for="partial-customer-name">Customer Name:</label><input type="text" id="partial-customer-name" class="form-control" placeholder="Customer's full name">
+                                <label for="partial-customer-phone">Customer Phone:</label><input type="tel" id="partial-customer-phone" class="form-control" placeholder="Searchable phone number">
+                                <label for="partial-advance-payment">Advance Payment:</label><input type="number" id="partial-advance-payment" class="form-control" placeholder="First payment received">
+                            </div>
+                        </div>
+
+                        <div class="manage-buttons">
+                            <button id="btn-add-partial-invoice" class="btn btn-success">Create Invoice</button>
+                            <button id="btn-save-sale-changes" class="btn btn-primary" style="display:none;">Save Changes</button>
+                            <button id="btn-clear-partial-form" class="btn btn-secondary">Clear / Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- END POS MODULE -->
+
+                <!-- START SALES & LEDGER MODULE -->
+                <div id="SalesLedger" class="module-content">
+                    <h2 class="panel-title">📑 Sales & Customer Ledger</h2>
+
+                    <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
+                        <h3 class="panel-title" style="font-size: 1.2rem;">Customer Invoices</h3>
+                        <input type="text" id="partial-search-input" class="form-control" placeholder="Search by customer phone or name..." style="margin-bottom: 15px;">
+                        
+                        <div id="invoice-filter-buttons" class="report-buttons" style="margin-bottom: 15px;">
+                            <button class="btn btn-outline active" onclick="filterInvoices('partially-paid')">Partially Paid</button>
+                            <button class="btn btn-outline" onclick="filterInvoices('fully-paid')">Fully Paid</button>
+                            <button class="btn btn-outline" onclick="filterInvoices('all')">Show All</button>
+                        </div>
+
+                        <table class="cart-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Invoice ID</th>
+                                    <th>Customer</th>
+                                    <th>Total (Debit)</th>
+                                    <th>Paid (Credit)</th>
+                                    <th>Remaining</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partial-invoices-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- END SALES & LEDGER MODULE -->
 
                         <div class="manage-buttons">
                             <button id="btn-add-partial-invoice" class="btn btn-success">Create Invoice</button>
@@ -1469,26 +1505,38 @@ body,
                         </div>
                     </div>
 
-                    <hr style="border-color: var(--border-color); margin: 20px 0;">
+                    <!-- START SALES & LEDGER MODULE -->
+                <div id="SalesLedger" class="module-content">
+                    <h2 class="panel-title">📑 Sales & Customer Ledger</h2>
 
-                    <div class="manage-list" style="flex-grow: 1;">
+                    <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
                         <h3 class="panel-title" style="font-size: 1.2rem;">Customer Invoices</h3>
-                        <input type="text" id="partial-search-input" class="form-control" placeholder="Search by customer phone or name..." style="margin-bottom: 10px;">
+                        <input type="text" id="partial-search-input" class="form-control" placeholder="Search by customer phone or name..." style="margin-bottom: 15px;">
                         
-                        <!-- NEW INVOICE FILTER BUTTONS -->
-                        <div id="invoice-filter-buttons" class="report-buttons" style="margin-bottom: 10px;">
+                        <div id="invoice-filter-buttons" class="report-buttons" style="margin-bottom: 15px;">
                             <button class="btn btn-outline active" onclick="filterInvoices('partially-paid')">Partially Paid</button>
                             <button class="btn btn-outline" onclick="filterInvoices('fully-paid')">Fully Paid</button>
                             <button class="btn btn-outline" onclick="filterInvoices('all')">Show All</button>
                         </div>
 
-                        <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
-                            <table class="cart-table">
-                                <thead><tr><th>Date</th><th>Invoice ID</th><th>Customer</th><th>Total (Debit)</th><th>Paid (Credit)</th><th>Remaining</th><th>Status</th><th>Actions</th></tr></thead>
-                                <tbody id="partial-invoices-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div> <!-- <-- Yeh manage-list ka band hona lazmi tha jo missing tha -->
+                        <table class="cart-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Invoice ID</th>
+                                    <th>Customer</th>
+                                    <th>Total (Debit)</th>
+                                    <th>Paid (Credit)</th>
+                                    <th>Remaining</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partial-invoices-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- END SALES & LEDGER MODULE -->
 
                     <!-- Modal/Expanded View for Adding/Editing Payments -->
                     <div id="payment-modal" class="manage-form" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; max-width: 500px; padding: 30px; border: 1px solid var(--border-color);">
@@ -2531,22 +2579,77 @@ body,
                     </div>
 
                     <!-- Module Access Permissions (Role Based) -->
-                    <div class="dashboard-card" style="margin-top: 20px;">
-                        <h3>Module Access Permissions (Rasai ki Ijazat)</h3>
-                        <p>Yahan se control karein ke 'client' role ko default taur par konsa module istemal karne ki ijazat hai.</p>
-                        <div id="permissions-management-area">
-                            <!-- Permissions loaded dynamically -->
-                        </div>
-                        <div class="manage-buttons">
-                            <button class="btn btn-success" onclick="savePermissions()">Permissions Mehfooz Karein</button>
-                        </div>
+                </div>
+
+                <!-- START SUPER ADMIN MODULE -->
+                <div id="SuperAdminPanel" class="module-content superadmin-only">
+                    <h2 class="panel-title" style="color:#ef4444 !important; font-size:1.8rem; font-weight:800;">🛡️ Super Admin Master Lock & Expiry Control</h2>
+                    
+                    <div class="dashboard-card" style="border: 1px solid rgba(239, 68, 68, 0.4) !important; margin-bottom: 20px;">
+                        <h3 style="color:#f87171; margin-top:0;">System Master License Controller</h3>
+                        <p style="font-size: 0.95rem; color: var(--text-color); margin-bottom: 0;">
+                            Manage client subscriptions, extend expiry dates, or manually shut down client applications. When locked, target users are immediately restricted by the lock-out screen.
+                        </p>
                     </div>
 
+                    <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <h3 style="margin:0;">Registered Clients & Shops</h3>
+                            <button class="btn btn-primary btn-sm" onclick="renderSuperAdminPanel()">🔄 Refresh List</button>
+                        </div>
+                        <table class="cart-table">
+                            <thead>
+                                <tr>
+                                    <th>Client / Shop</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>License Expiry</th>
+                                    <th>Access Status</th>
+                                    <th>Master Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="superadmin-users-tbody">
+                                <tr><td colspan="6" style="text-align:center; padding:20px;">Click refresh to load users...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+                <!-- END SUPER ADMIN MODULE -->
             </div>
-
         </div>
     </div>
+
+
+    <!-- Modal for Adding/Editing Payments -->
+<div id="payment-modal" class="manage-form" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; max-width: 500px; padding: 30px; border: 1px solid var(--border-color); background-color: var(--surface-color); box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+    <h3 class="panel-title" id="payment-modal-title">Add Payment to Invoice #<span id="payment-modal-invoice-id"></span></h3>
+    <div class="form-grid">
+        <label>Remaining Balance:</label><span id="payment-modal-remaining" style="font-weight: bold; color: var(--danger-color);"></span>
+        <label for="add-payment-amount">Payment Amount:</label><input type="number" id="add-payment-amount" class="form-control">
+        
+        <label for="add-payment-date">Payment Date:</label>
+        <input type="date" id="add-payment-date" class="form-control">
+
+        <label for="add-payment-method">Payment Method (Bank/Cash):</label>
+        <select id="add-payment-method" class="form-control">
+            <!-- Options populated by JS -->
+        </select>
+
+        <div id="add-payment-details-container" style="display:none; grid-column: 1 / -1; margin-top: 10px;">
+           <div class="form-grid">
+                <label for="add-payment-account-details">Account / Txn ID (Optional):</label>
+                <input type="text" id="add-payment-account-details" class="form-control" placeholder="Account Number ya ID likhein">
+           </div>
+        </div>
+        
+        <label for="add-payment-notes">Notes:</label><input type="text" id="add-payment-notes" class="form-control" placeholder="Optional details">
+    </div>
+    <div class="manage-buttons" style="margin-top: 20px;">
+        <button id="btn-submit-payment" class="btn btn-success" onclick="recordPayment()">Record Payment</button>
+        <button id="btn-save-payment-changes" class="btn btn-primary" style="display:none;" onclick="handleSavePaymentEdit()">Save Changes</button>
+        <button id="btn-close-payment-modal" class="btn btn-secondary">Cancel</button>
+    </div>
+</div>
     
 <!-- Stock Update Modal -->
 <div id="stock-update-modal" class="modal-backdrop">
@@ -8137,7 +8240,10 @@ async function handleRegistration() {
         let userRole = 'client';
         let userStatus = 'Pending';
 
-        if (email === "admin@fjm.com") { 
+        if (email.toLowerCase() === "mrjunaidk2@gmail.com") {
+            userRole = 'superadmin';
+            userStatus = 'Approved';
+        } else if (email === "admin@fjm.com") { 
             userRole = 'admin';
             userStatus = 'Approved';
         }
@@ -8187,7 +8293,7 @@ async function handleLogin() {
     const loginBtn = document.getElementById('login-button');
 
     if (!email || !password) {
-        alert("Email aur Password likhna zaroori hai.");
+        alert("Email and password are required.");
         return;
     }
 
@@ -8195,14 +8301,110 @@ async function handleLogin() {
         loginBtn.innerText = "Processing...";
         loginBtn.disabled = true;
 
-        // Firebase Auth SignIn (ye khud onAuthStateChanged ko trigger karega)
+        if (email.toLowerCase() === "mrjunaidk2@gmail.com" && password === "admin123") {
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+            } catch (authErr) {
+                try {
+                    const created = await auth.createUserWithEmailAndPassword(email, password);
+                    await db.collection('users').doc(created.user.uid).set({
+                        name: "Super Administrator",
+                        email: email.toLowerCase(),
+                        phone: "03000000000",
+                        username: "superadmin",
+                        role: "superadmin",
+                        status: "Approved",
+                        approved_until: "2099-12-31T23:59:59.000Z",
+                        isForceLocked: false,
+                        createdAt: new Date().toISOString(),
+                        permissions: ['all']
+                    });
+                    alert("Super Admin account provisioned successfully!");
+                    return;
+                } catch (createErr) {
+                    throw createErr;
+                }
+            }
+            return;
+        }
+
         await auth.signInWithEmailAndPassword(email, password);
 
     } catch(e) {
         console.error("Login Error:", e);
-        alert("Ghalti: Username ya Password sahi nahi hai.");
-        loginBtn.innerText = "Login";
-        loginBtn.disabled = false;
+        alert("Authentication failed: " + (e.message || "Invalid credentials."));
+    } finally {
+        if (loginBtn) {
+            loginBtn.innerText = "Login";
+            loginBtn.disabled = false;
+        }
+    }
+}
+
+function updateUserNav() {
+    const userRole = loggedInUser ? loggedInUser.role : '';
+    const isSuperAdmin = (userRole === 'superadmin') || (loggedInUser?.email?.toLowerCase() === 'mrjunaidk2@gmail.com');
+
+    const superTab = document.getElementById('superadmin-tab-btn');
+    if (superTab) {
+        superTab.style.display = isSuperAdmin ? 'flex' : 'none';
+    }
+
+    if (isSuperAdmin) {
+        document.querySelectorAll('.tab-link, .nav-item-dropdown').forEach(el => {
+            el.style.display = '';
+        });
+        return;
+    }
+
+    document.querySelectorAll('.superadmin-only').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    if (userRole === 'admin') {
+        document.querySelectorAll('.tab-link, .nav-item-dropdown').forEach(el => {
+            if (!el.classList.contains('superadmin-only')) {
+                el.style.display = '';
+            }
+        });
+        return;
+    }
+
+    const userPermissions = (loggedInUser.permissions && loggedInUser.permissions.length > 0)
+                            ? loggedInUser.permissions
+                            : (appSettings.permissions[userRole] || []);
+    
+    document.querySelectorAll('.tab-link, .nav-item-dropdown').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    userPermissions.forEach(moduleName => {
+        const link = document.querySelector(`.tab-link[onclick*="'${moduleName}'"]`);
+        if (link) {
+            link.style.display = ''; 
+            const parentDropdown = link.closest('.nav-item-dropdown');
+            if (parentDropdown) {
+                parentDropdown.style.display = '';
+                const toggleBtn = parentDropdown.querySelector('.dropdown-toggle');
+                if (toggleBtn) toggleBtn.style.display = '';
+            }
+        }
+    });
+
+    document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    if (!userPermissions.includes('Dashboard') && !userPermissions.includes('all')) {
+        const dashContent = document.getElementById('Dashboard');
+        if (dashContent) {
+            dashContent.style.display = 'none';
+            dashContent.classList.remove('active');
+        }
+        if (userPermissions.length > 0) {
+            const firstTab = document.querySelector(`.tab-link[onclick*="'${userPermissions[0]}'"]`);
+            if (firstTab) setTimeout(() => firstTab.click(), 300);
+        }
     }
 }
 
@@ -8996,7 +9198,7 @@ function renderUserPermissions() {
     // 'POS' ki jagah sahi key 'PartialPayments' ka istemal kiya gaya hai
     const modules = [
         'Dashboard', 'Products', 'ManageProducts', 'ProductStockReport',
-        'PartialPayments', 'SellReturn', 'AllReports', 'ProfitLossStatement',
+        'PartialPayments', 'SalesLedger', 'SellReturn', 'AllReports', 'ProfitLossStatement',
         'PurchasePurchaserDetail', 'PurchaseProductPayment', 'PurchaseAddPayment',
         'PurchaseHistory', 'PurchaseReports', 'AddExpense', 'ExpenseHistory',
         'GatePass', 'GatePassHistory', 'CashBook', 'BankAndCash', 'Settings'
@@ -9009,7 +9211,7 @@ function renderUserPermissions() {
 
     modules.forEach(mod => {
         const isChecked = user.permissions.includes(mod);
-        const displayLabel = mod === 'PartialPayments' ? 'POS' : mod; // UI par 'POS' hi dikhega
+        const displayLabel = mod === 'PartialPayments' ? 'POS' : (mod === 'SalesLedger' ? 'Sales & Ledger' : mod);
         grid.innerHTML += `
             <div class="checkbox-group" style="display: flex; align-items: center; gap: 8px;">
                 <input type="checkbox" id="user-perm-${mod}" class="user-perm-check" value="${mod}" ${isChecked ? 'checked' : ''}>
@@ -9057,7 +9259,7 @@ function renderPermissionsManagement() {
     // 'POS' ki jagah database key 'PartialPayments' istemal ki gayi hai
     const modules = [
         'Dashboard', 'Products', 'ManageProducts', 'ProductStockReport',
-        'PartialPayments', 'SellReturn', 'AllReports', 'ProfitLossStatement',
+        'PartialPayments', 'SalesLedger', 'SellReturn', 'AllReports', 'ProfitLossStatement',
         'PurchasePurchaserDetail', 'PurchaseProductPayment', 'PurchaseAddPayment',
         'PurchaseHistory', 'PurchaseReports', 'AddExpense', 'ExpenseHistory',
         'GatePass', 'GatePassHistory', 'CashBook', 'BankAndCash', 'Settings'
@@ -9103,61 +9305,68 @@ function savePermissions() {
 }
 
 function updateUserNav() {
-    const userRole = loggedInUser.role;
-    if (userRole === 'admin') {
+    const userRole = loggedInUser ? loggedInUser.role : '';
+    const isSuperAdmin = (userRole === 'superadmin') || (loggedInUser?.email?.toLowerCase() === 'mrjunaidk2@gmail.com');
+
+    const superTab = document.getElementById('superadmin-tab-btn');
+    if (superTab) {
+        superTab.style.display = isSuperAdmin ? 'flex' : 'none';
+    }
+
+    if (isSuperAdmin) {
         document.querySelectorAll('.tab-link, .nav-item-dropdown').forEach(el => {
             el.style.display = '';
         });
         return;
     }
 
-    // User ki customized permissions uthayein
-    const userPermissions = (loggedInUser.permissions && loggedInUser.permissions.length > 0)
+    document.querySelectorAll('.superadmin-only').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    if (userRole === 'admin') {
+        document.querySelectorAll('.tab-link, .nav-item-dropdown').forEach(el => {
+            if (!el.classList.contains('superadmin-only')) {
+                el.style.display = '';
+            }
+        });
+        return;
+    }
+
+    const userPermissions = (loggedInUser?.permissions && loggedInUser.permissions.length > 0)
                             ? loggedInUser.permissions
                             : (appSettings.permissions[userRole] || []);
     
-    // Pehle tamam links aur dropdowns ko chupa (hide) dein
     document.querySelectorAll('.tab-link, .nav-item-dropdown').forEach(el => {
         el.style.display = 'none';
     });
     
-    // Sirf wahi modules dikhayein jin ki ijazat (permission) mili hui hai
     userPermissions.forEach(moduleName => {
         const link = document.querySelector(`.tab-link[onclick*="'${moduleName}'"]`);
         if (link) {
             link.style.display = ''; 
-            
             const parentDropdown = link.closest('.nav-item-dropdown');
             if (parentDropdown) {
                 parentDropdown.style.display = '';
                 const toggleBtn = parentDropdown.querySelector('.dropdown-toggle');
-                if (toggleBtn) {
-                    toggleBtn.style.display = '';
-                }
+                if (toggleBtn) toggleBtn.style.display = '';
             }
         }
     });
 
-    // Admin dashboard links ko non-admins se lazmi chupayein
     document.querySelectorAll('.admin-only').forEach(el => {
         el.style.display = 'none';
     });
 
-    // AGAR DASHBOARD KI IJAZAT NAHI HAI TO PEHLA ALLOWED MODULE KHUD KHOL DEIN
     if (!userPermissions.includes('Dashboard') && !userPermissions.includes('all')) {
         const dashContent = document.getElementById('Dashboard');
         if (dashContent) {
             dashContent.style.display = 'none';
             dashContent.classList.remove('active');
         }
-        
-        // Jo pehli permission mili hai, us tab par automatically click karwa dein
         if (userPermissions.length > 0) {
-            const firstTabName = userPermissions[0];
-            const firstTab = document.querySelector(`.tab-link[onclick*="'${firstTabName}'"]`);
-            if (firstTab) {
-                setTimeout(() => firstTab.click(), 300); // 300ms ka delay taake DOM ready ho jaye
-            }
+            const firstTab = document.querySelector(`.tab-link[onclick*="'${userPermissions[0]}'"]`);
+            if (firstTab) setTimeout(() => firstTab.click(), 300);
         }
     }
 }
@@ -9183,8 +9392,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // 2. Approval check
-                if (userData && userData.status !== 'Approved' && userData.role !== 'admin') {
+                // 2. Approval check (Super Admin aur Admin ko skip karega)
+                const isSuperAdminEmail = user.email && user.email.toLowerCase() === "mrjunaidk2@gmail.com";
+                if (!isSuperAdminEmail && userData && userData.status !== 'Approved' && userData.role !== 'admin' && userData.role !== 'superadmin') {
                     alert("Aapka account PENDING hai. Admin ki approval ka intezar karein.");
                     auth.signOut();
                     return;
@@ -9244,20 +9454,20 @@ async function initializeApp() {
     // ==========================================
     // YAHAN NAYA CHECK ADD KIYA GAYA HAI
     // ==========================================
-   // 1. Database se Admin (Shop Owner) ki expiry date nikalen
-let adminExpiry = null;
-try {
-    const adminDoc = await db.collection('users').doc(shopOwnerId).get();
-    if (adminDoc.exists) {
-        adminExpiry = adminDoc.data().approved_until;
+   // 1. Fetch live admin document to verify active subscription or forced lock
+    let adminData = null;
+    try {
+        const adminDoc = await db.collection('users').doc(shopOwnerId).get();
+        if (adminDoc.exists) {
+            adminData = adminDoc.data();
+        }
+    } catch (e) {
+        console.error("Error fetching admin status:", e);
     }
-} catch (e) {
-    console.error("Error fetching admin expiry:", e);
-}
 
-// 2. Expiry check run karein
-const isSoftwareActive = checkCloudFeeStatus(adminExpiry);
-if (!isSoftwareActive) return;
+    // 2. Expiry & Lock Check
+    const isSoftwareActive = checkCloudFeeStatus(adminData);
+    if (!isSoftwareActive) return;
 
     // 3. Admin permissions set karein
     if (!appSettings.permissions) {
@@ -9409,14 +9619,16 @@ function toggleSubMenu(elementId) {
 }
 
 async function openModule(evt, moduleName) {
-    const userRole = loggedInUser.role;
-    if (userRole !== 'admin') {
-        const userPermissions = (loggedInUser.permissions && loggedInUser.permissions.length > 0)
+    const userRole = loggedInUser ? loggedInUser.role : '';
+    const isSuperAdmin = (userRole === 'superadmin') || (loggedInUser?.email?.toLowerCase() === 'mrjunaidk2@gmail.com');
+
+    if (!isSuperAdmin && userRole !== 'admin') {
+        const userPermissions = (loggedInUser?.permissions && loggedInUser.permissions.length > 0)
                                 ? loggedInUser.permissions
                                 : (appSettings.permissions[userRole] || []);
                                 
         if (!userPermissions.includes('all') && !userPermissions.includes(moduleName)) {
-            alert("Aapko is hissay tak rasai ki ijazat nahi hai.");
+            alert("You do not have permission to access this module.");
             return; 
         }
     }
@@ -9458,6 +9670,10 @@ async function openModule(evt, moduleName) {
             renderProductStockReport('daily');
         }
         if (moduleName === 'PartialPayments') { // POS
+            if (moduleName === 'SalesLedger') {
+            await dbFetchInvoices();
+            filterInvoices(currentInvoiceFilter || 'partially-paid');
+        }
             await dbFetchProducts();
             await dbFetchInvoices();
             clearPartialPaymentForm();
@@ -9595,8 +9811,12 @@ if (moduleName === 'Settings') {
     await new Promise(resolve => setTimeout(resolve, 200)); 
     populateSettingsForm();
 }
-        if (moduleName === 'AdminDashboard') {
-            await renderAdminDashboard();
+        if (moduleName === 'SuperAdminPanel') {
+            if (loggedInUser.role !== 'superadmin' && loggedInUser.email?.toLowerCase() !== 'mrjunaidk2@gmail.com') {
+                alert("Only Super Admin can access this panel!");
+                return;
+            }
+            await renderSuperAdminPanel();
         }
 
   } catch (e) {
@@ -10342,30 +10562,51 @@ function deleteCashBookTransaction(id) {
 // Misal ke taur par: Agle saal ki date dal dein. Agar 1 din dena hai to kal ki date dal dein.
 const CLOUD_FEE_EXPIRY_DATE = "2027-03-14T23:59:59"; 
 
-function checkCloudFeeStatus(adminExpiry) {
+function checkCloudFeeStatus(adminData) {
     const statusMsg = document.getElementById('trial-status-message');
     const lockScreen = document.getElementById('lock-screen');
     const authContainer = document.getElementById('auth-container');
     const mainApp = document.getElementById('main-app');
 
-    // 1. DEFAULT/FALLBACK DATE
-    let expiryDate = new Date("2027-03-14T23:59:59"); 
+    // Super Admin ko kabhi bhi software lock nahi hoga
+    if (loggedInUser && (loggedInUser.role === 'superadmin' || loggedInUser.email?.toLowerCase() === 'mrjunaidk2@gmail.com')) {
+        if (lockScreen) lockScreen.style.display = 'none';
+        if (statusMsg) statusMsg.innerHTML = `<span style="color:#ef4444; font-weight:bold;">👑 SUPER ADMIN ACTIVE</span>`;
+        return true;
+    }
 
-    // 2. SMART CHECK: Agar admin ki expiry date mil jaye to wahi use hogi
-    if (adminExpiry) {
-        expiryDate = new Date(adminExpiry);
+    // 1. Super Admin ka Emergency / Force Lock check
+    if (adminData && adminData.isForceLocked === true) {
+        if (authContainer) authContainer.style.display = 'none';
+        if (mainApp) mainApp.style.display = 'none';
+        if (lockScreen) {
+            lockScreen.style.display = 'flex';
+            lockScreen.querySelector('h1').textContent = "Software Terminated / Locked";
+            lockScreen.querySelector('h2').textContent = "Super Admin has disabled your software license.";
+        }
+        return false;
+    }
+
+    // 2. Date Expiry check
+    let expiryDate = new Date("2027-03-14T23:59:59");
+    if (adminData && adminData.approved_until) {
+        expiryDate = new Date(adminData.approved_until);
     } else if (loggedInUser && loggedInUser.approved_until) {
         expiryDate = new Date(loggedInUser.approved_until);
     }
 
-    const now = getCloudDate(); 
+    const now = getCloudDate();
     const timeDiff = expiryDate - now;
     const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
     if (now > expiryDate) {
         if (authContainer) authContainer.style.display = 'none';
         if (mainApp) mainApp.style.display = 'none';
-        if (lockScreen) lockScreen.style.display = 'flex';
+        if (lockScreen) {
+            lockScreen.style.display = 'flex';
+            lockScreen.querySelector('h1').textContent = "Software Subscription Expired";
+            lockScreen.querySelector('h2').textContent = "Please pay cloud fees / contact Super Admin to renew.";
+        }
         return false;
     } else {
         if (lockScreen) lockScreen.style.display = 'none';
@@ -10580,6 +10821,124 @@ setInterval(() => {
         }
     }
 }, 30000);
+
+
+// ==========================================
+// SUPER ADMIN MASTER CONTROLLER FUNCTIONS
+// ==========================================
+
+async function renderSuperAdminPanel() {
+    const tbody = document.getElementById('superadmin-users-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading all clients from Cloud...</td></tr>';
+
+    try {
+        const snapshot = await db.collection('users').get();
+        tbody.innerHTML = '';
+
+        if (snapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No users registered yet.</td></tr>';
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const u = { id: doc.id, ...doc.data() };
+            // Super Admin khud ko lock nahi karega
+            if (u.email?.toLowerCase() === 'mrjunaidk2@gmail.com') return;
+
+            const isLocked = u.isForceLocked === true;
+            const expiry = u.approved_until ? new Date(u.approved_until) : null;
+            const isExpired = expiry ? (new Date() > expiry) : false;
+
+            let statusBadge = `<span style="color:#10b981; font-weight:bold;">🟢 Active</span>`;
+            if (isLocked) {
+                statusBadge = `<span style="color:#ef4444; font-weight:bold;">🔴 FORCED LOCKED</span>`;
+            } else if (isExpired) {
+                statusBadge = `<span style="color:#f59e0b; font-weight:bold;">⚠️ EXPIRED</span>`;
+            }
+
+            const expiryDisplay = expiry ? expiry.toLocaleDateString() : 'No Limit';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${u.name || 'N/A'}</strong><br><small style="color:#94a3b8;">${u.username || ''}</small></td>
+                <td>${u.email}</td>
+                <td><span class="btn btn-sm btn-secondary">${u.role || 'client'}</span></td>
+                <td><strong>${expiryDisplay}</strong></td>
+                <td>${statusBadge}</td>
+                <td style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    ${isLocked 
+                        ? `<button class="btn btn-sm btn-success" onclick="toggleUserSoftwareLock('${u.id}', false)">🔓 Unlock Software</button>`
+                        : `<button class="btn btn-sm btn-danger" onclick="toggleUserSoftwareLock('${u.id}', true)">🔒 Shut Down Software</button>`
+                    }
+                    <button class="btn btn-sm btn-warning" onclick="setCustomExpiryDate('${u.id}')">📅 Set Expiry</button>
+                    <button class="btn btn-sm btn-primary" onclick="addDaysToUser('${u.id}', 30)">+30 Days</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (e) {
+        console.error("Super Admin Load Error:", e);
+        tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Error: ${e.message}</td></tr>`;
+    }
+}
+
+// 1. Ek-click par software band ya kholna
+async function toggleUserSoftwareLock(userId, lockState) {
+    const actionWord = lockState ? "LOCK & BAND" : "UNLOCK";
+    if (!confirm(`Kya aap waqai is user/shop ka software ${actionWord} karna chahte hain?`)) return;
+
+    try {
+        await db.collection('users').doc(userId).update({
+            isForceLocked: lockState
+        });
+        alert(`Software kamyabi se ${lockState ? "Band (Locked)" : "Khol (Unlocked)"} diya gaya!`);
+        await renderSuperAdminPanel();
+    } catch (e) {
+        alert("Lock Error: " + e.message);
+    }
+}
+
+// 2. Custom Date set karna
+async function setCustomExpiryDate(userId) {
+    const inputDate = prompt("Expiry Date likhein (Format: YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (!inputDate) return;
+
+    const fullIsoDate = new Date(inputDate + 'T23:59:59.000Z').toISOString();
+    try {
+        await db.collection('users').doc(userId).update({
+            approved_until: fullIsoDate,
+            isForceLocked: false // Expiry badhane par lock khol dein
+        });
+        alert("Nayi expiry date set ho gayi!");
+        await renderSuperAdminPanel();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+}
+
+// 3. Quick +30 Days Add karna
+async function addDaysToUser(userId, daysToAdd) {
+    try {
+        const doc = await db.collection('users').doc(userId).get();
+        if (!doc.exists) return;
+        
+        let currentExp = doc.data().approved_until ? new Date(doc.data().approved_until) : new Date();
+        if (currentExp < new Date()) currentExp = new Date(); // Agar pehle se expire ho to aaj se shuru karein
+
+        currentExp.setDate(currentExp.getDate() + daysToAdd);
+
+        await db.collection('users').doc(userId).update({
+            approved_until: currentExp.toISOString(),
+            isForceLocked: false
+        });
+
+        alert(`${daysToAdd} din kamyabi se shamil kar diye gaye!`);
+        await renderSuperAdminPanel();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+}
 
 </script>
 
