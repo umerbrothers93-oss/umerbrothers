@@ -1465,13 +1465,43 @@ body,
                 </div>
                 <!-- END POS MODULE -->
 
-                <!-- START SALES & LEDGER MODULE -->
+               <!-- START SALES & LEDGER MODULE -->
                 <div id="SalesLedger" class="module-content">
                     <h2 class="panel-title">📑 Sales & Customer Ledger</h2>
 
+                    <!-- Naya Date Filter Aur Report Section -->
+                    <div class="manage-form" style="margin-bottom: 20px;">
+                        <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--text-light);">📅 Filter Sales by Date & Period</h3>
+                        
+                        <!-- 1. Quick Period Buttons -->
+                        <div class="report-buttons" id="sales-date-filter-buttons" style="margin-bottom: 15px;">
+                            <button id="sl-btn-today" class="btn btn-outline" onclick="setSalesDateFilter('today')">Today</button>
+                            <button id="sl-btn-yesterday" class="btn btn-outline" onclick="setSalesDateFilter('yesterday')">Yesterday</button>
+                            <button id="sl-btn-7days" class="btn btn-outline" onclick="setSalesDateFilter('7days')">Last 7 Days</button>
+                            <button id="sl-btn-all" class="btn btn-outline active" onclick="setSalesDateFilter('all')">All Time</button>
+                        </div>
+
+                        <!-- 2. Custom Date Range Pickers -->
+                        <div class="form-grid" style="grid-template-columns: auto 1fr auto 1fr auto; gap: 10px; align-items: center;">
+                            <label for="sl-from-date">From:</label>
+                            <input type="date" id="sl-from-date" class="form-control" onchange="applySalesCustomDateFilter()">
+
+                            <label for="sl-to-date">To:</label>
+                            <input type="date" id="sl-to-date" class="form-control" onchange="applySalesCustomDateFilter()">
+
+                            <button class="btn btn-primary" onclick="applySalesCustomDateFilter()">Filter by Date</button>
+                        </div>
+
+                        <!-- 3. Report & Reset Buttons -->
+                        <div class="manage-buttons" style="margin-top: 15px;">
+                            <button class="btn btn-info" onclick="generateSalesLedgerReportPDF()">📄 Generate Filtered PDF Report</button>
+                            <button class="btn btn-secondary" onclick="resetSalesDateFilters()">Reset Date Filters</button>
+                        </div>
+                    </div>
+
                     <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
                         <h3 class="panel-title" style="font-size: 1.2rem;">Customer Invoices</h3>
-                        <input type="text" id="partial-search-input" class="form-control" placeholder="Search by customer phone or name..." style="margin-bottom: 15px;">
+                        <input type="text" id="partial-search-input" class="form-control" placeholder="Search by customer phone or name..." style="margin-bottom: 15px;" oninput="renderPartialPaymentTable()">
                         
                         <div id="invoice-filter-buttons" class="report-buttons" style="margin-bottom: 15px;">
                             <button class="btn btn-outline active" onclick="filterInvoices('partially-paid')">Partially Paid</button>
@@ -1497,79 +1527,6 @@ body,
                     </div>
                 </div>
                 <!-- END SALES & LEDGER MODULE -->
-
-                        <div class="manage-buttons">
-                            <button id="btn-add-partial-invoice" class="btn btn-success">Create Invoice</button>
-                            <button id="btn-save-sale-changes" class="btn btn-primary" style="display:none;">Save Changes</button>
-                            <button id="btn-clear-partial-form" class="btn btn-secondary">Clear / Cancel</button>
-                        </div>
-                    </div>
-
-                    <!-- START SALES & LEDGER MODULE -->
-                <div id="SalesLedger" class="module-content">
-                    <h2 class="panel-title">📑 Sales & Customer Ledger</h2>
-
-                    <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
-                        <h3 class="panel-title" style="font-size: 1.2rem;">Customer Invoices</h3>
-                        <input type="text" id="partial-search-input" class="form-control" placeholder="Search by customer phone or name..." style="margin-bottom: 15px;">
-                        
-                        <div id="invoice-filter-buttons" class="report-buttons" style="margin-bottom: 15px;">
-                            <button class="btn btn-outline active" onclick="filterInvoices('partially-paid')">Partially Paid</button>
-                            <button class="btn btn-outline" onclick="filterInvoices('fully-paid')">Fully Paid</button>
-                            <button class="btn btn-outline" onclick="filterInvoices('all')">Show All</button>
-                        </div>
-
-                        <table class="cart-table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Invoice ID</th>
-                                    <th>Customer</th>
-                                    <th>Total (Debit)</th>
-                                    <th>Paid (Credit)</th>
-                                    <th>Remaining</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="partial-invoices-table-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <!-- END SALES & LEDGER MODULE -->
-
-                    <!-- Modal/Expanded View for Adding/Editing Payments -->
-                    <div id="payment-modal" class="manage-form" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; max-width: 500px; padding: 30px; border: 1px solid var(--border-color);">
-                        <h3 class="panel-title" id="payment-modal-title">Add Payment to Invoice #<span id="payment-modal-invoice-id"></span></h3>
-                        <div class="form-grid">
-                            <label>Remaining Balance:</label><span id="payment-modal-remaining" style="font-weight: bold; color: var(--danger-color);"></span>
-                            <label for="add-payment-amount">Payment Amount:</label><input type="number" id="add-payment-amount" class="form-control">
-                            
-                            <label for="add-payment-date">Payment Date:</label>
-                            <input type="date" id="add-payment-date" class="form-control">
-
-                            <label for="add-payment-method">Payment Method (Bank/Cash):</label>
-<select id="add-payment-method" class="form-control">
-    <!-- Options will be populated by JS -->
-</select>
-
-<div id="add-payment-details-container" style="display:none; grid-column: 1 / -1; margin-top: 10px;">
-   <div class="form-grid">
-        <label for="add-payment-account-details">Account / Txn ID (Optional):</label>
-        <input type="text" id="add-payment-account-details" class="form-control" placeholder="Account Number ya ID likhein">
-   </div>
-</div>
-                            
-                            <label for="add-payment-notes">Notes:</label><input type="text" id="add-payment-notes" class="form-control" placeholder="Optional details">
-                        </div>
-                        <div class="manage-buttons">
-                            <button id="btn-submit-payment" class="btn btn-success" onclick="recordPayment()">Record Payment</button>
-                            <button id="btn-save-payment-changes" class="btn btn-primary" style="display:none;" onclick="handleSavePaymentEdit()">Save Changes</button>
-                            <button id="btn-close-payment-modal" class="btn btn-secondary">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-                <!-- END NEW MODULE -->
                 
                 <!-- START NEW SELL RETURN MODULE -->
                 <div id="SellReturn" class="module-content">
@@ -4386,54 +4343,263 @@ async function addPartialPaymentInvoice() {
     }
 }
 
+// --- SALES & LEDGER DATE FILTER VARIABLES ---
+let currentSalesDateFilter = 'all'; // 'today', 'yesterday', '7days', 'custom', 'all'
+
+function setSalesDateFilter(filterType) {
+    currentSalesDateFilter = filterType;
+
+    // Custom inputs clear karein agar preset click ho
+    if (filterType !== 'custom') {
+        const fromInput = document.getElementById('sl-from-date');
+        const toInput = document.getElementById('sl-to-date');
+        if (fromInput) fromInput.value = '';
+        if (toInput) toInput.value = '';
+    }
+
+    // Active button class toggle
+    document.querySelectorAll('#sales-date-filter-buttons .btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`sl-btn-${filterType}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    renderPartialPaymentTable();
+}
+
+function applySalesCustomDateFilter() {
+    const fromVal = document.getElementById('sl-from-date')?.value;
+    const toVal = document.getElementById('sl-to-date')?.value;
+
+    if (!fromVal && !toVal) {
+        alert("Meharbani karke 'From' ya 'To' date select karein.");
+        return;
+    }
+
+    currentSalesDateFilter = 'custom';
+    document.querySelectorAll('#sales-date-filter-buttons .btn').forEach(btn => btn.classList.remove('active'));
+
+    renderPartialPaymentTable();
+}
+
+function resetSalesDateFilters() {
+    currentSalesDateFilter = 'all';
+    const fromInput = document.getElementById('sl-from-date');
+    const toInput = document.getElementById('sl-to-date');
+    if (fromInput) fromInput.value = '';
+    if (toInput) toInput.value = '';
+
+    document.querySelectorAll('#sales-date-filter-buttons .btn').forEach(btn => btn.classList.remove('active'));
+    const allBtn = document.getElementById('sl-btn-all');
+    if (allBtn) allBtn.classList.add('active');
+
+    renderPartialPaymentTable();
+}
+
+// --- UPDATED RENDER TABLE WITH STATUS + DATE FILTERS ---
 function renderPartialPaymentTable() {
     const tbody = document.getElementById('partial-invoices-table-body');
-    const searchQuery = document.getElementById('partial-search-input').value.toLowerCase();
+    if (!tbody) return;
+    const searchQuery = (document.getElementById('partial-search-input')?.value || '').toLowerCase().trim();
     tbody.innerHTML = '';
 
-    let filteredByStatus;
+    // 1. Status Filter (Partially Paid / Fully Paid / All)
+    let filtered;
     if (currentInvoiceFilter === 'fully-paid') {
-        filteredByStatus = partialPaymentInvoices.filter(inv => inv.remainingBalance <= 0.01);
+        filtered = partialPaymentInvoices.filter(inv => inv.remainingBalance <= 0.01);
     } else if (currentInvoiceFilter === 'partially-paid') {
-        filteredByStatus = partialPaymentInvoices.filter(inv => inv.remainingBalance > 0.01);
+        filtered = partialPaymentInvoices.filter(inv => inv.remainingBalance > 0.01);
     } else { 
-        filteredByStatus =[...partialPaymentInvoices];
+        filtered = [...partialPaymentInvoices];
     }
-    
-    const filteredInvoices = filteredByStatus.filter(invoice =>
-        invoice.customerName.toLowerCase().includes(searchQuery) ||
-        invoice.customerPhone.toLowerCase().includes(searchQuery) ||
-        String(invoice.invoiceId).includes(searchQuery) 
-    ).sort((a,b) => b.invoiceId - a.invoiceId)
 
+    // 2. Date Filter Logic (Today, Yesterday, 7 Days, Custom Date, All Time)
+    const now = typeof getCloudDate === 'function' ? getCloudDate() : new Date();
+
+    if (currentSalesDateFilter === 'today') {
+        const todayStr = getLocalDateString(now);
+        filtered = filtered.filter(inv => {
+            const invDateStr = getLocalDateString(inv.createdAt || (inv.payments && inv.payments[0]?.date));
+            return invDateStr === todayStr;
+        });
+    } else if (currentSalesDateFilter === 'yesterday') {
+        const yDate = new Date(now);
+        yDate.setDate(yDate.getDate() - 1);
+        const yesterdayStr = getLocalDateString(yDate);
+        filtered = filtered.filter(inv => {
+            const invDateStr = getLocalDateString(inv.createdAt || (inv.payments && inv.payments[0]?.date));
+            return invDateStr === yesterdayStr;
+        });
+    } else if (currentSalesDateFilter === '7days') {
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+        filtered = filtered.filter(inv => {
+            const invDate = new Date(inv.createdAt || (inv.payments && inv.payments[0]?.date));
+            return invDate >= sevenDaysAgo;
+        });
+    } else if (currentSalesDateFilter === 'custom') {
+        const fromVal = document.getElementById('sl-from-date')?.value;
+        const toVal = document.getElementById('sl-to-date')?.value;
+
+        if (fromVal) {
+            const fromDateObj = new Date(fromVal + 'T00:00:00');
+            filtered = filtered.filter(inv => new Date(inv.createdAt || (inv.payments && inv.payments[0]?.date)) >= fromDateObj);
+        }
+        if (toVal) {
+            const toDateObj = new Date(toVal + 'T23:59:59');
+            filtered = filtered.filter(inv => new Date(inv.createdAt || (inv.payments && inv.payments[0]?.date)) <= toDateObj);
+        }
+    }
+
+    // 3. Search Query Filter (Name, Phone, Invoice ID)
+    const filteredInvoices = filtered.filter(invoice =>
+        (invoice.customerName && invoice.customerName.toLowerCase().includes(searchQuery)) ||
+        (invoice.customerPhone && invoice.customerPhone.toLowerCase().includes(searchQuery)) ||
+        String(invoice.invoiceId).includes(searchQuery) 
+    ).sort((a,b) => b.invoiceId - a.invoiceId);
+
+    if (filteredInvoices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 18px; color: var(--text-color);">Selected filters ke mutabiq koi invoice nahi mili.</td></tr>';
+        return;
+    }
 
     filteredInvoices.forEach(invoice => {
-    const row = document.createElement('tr');
-    const statusClass = getStatusClass(invoice.status);
-    const remainingColor = invoice.remainingBalance > 0.01 ? 'var(--danger-color)' : 'var(--success-color)';
-    const isFullyPaid = invoice.status === 'Fully Paid';
-    
-    // Invoice ki creation date format karne ke liye
-    const invoiceDate = invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : '-';
+        const row = document.createElement('tr');
+        const statusClass = getStatusClass(invoice.status);
+        const remainingColor = invoice.remainingBalance > 0.01 ? 'var(--danger-color)' : 'var(--success-color)';
+        const isFullyPaid = invoice.status === 'Fully Paid';
+        const invoiceDate = invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : '-';
 
-    row.innerHTML = `
-        <td>${invoiceDate}</td>
-        <td>${invoice.invoiceId}</td>
-        <td>${invoice.customerName}</td>
-        <td>${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}</td>
-        <td>${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}</td>
-        <td style="color: ${remainingColor}; font-weight: bold;">${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}</td>
-        <td><span class="${statusClass}">${invoice.status}</span></td>
-        <td>
-            <button class="btn btn-sm btn-info" onclick="openPaymentModal('${invoice.invoiceId}')" ${isFullyPaid ? 'disabled' : ''}>Add Payment</button>
-            <button class="btn btn-sm btn-secondary" onclick="openViewPaymentsModal('${invoice.invoiceId}')">View Payments</button> 
-            <button class="btn btn-sm btn-warning" onclick="editSaleInvoice('${invoice.invoiceId}')">Edit</button>
-            <button class="btn btn-sm btn-primary" onclick="generateInvoicePDF('${invoice.invoiceId}')">PDF</button>
-            <button class="btn btn-sm btn-danger" onclick="initiateSellReturn('${invoice.invoiceId}')">Return</button>
-        </td>
-    `;
-    tbody.appendChild(row);
-});
+        row.innerHTML = `
+            <td>${invoiceDate}</td>
+            <td>#${invoice.invoiceId}</td>
+            <td>${invoice.customerName}</td>
+            <td>${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}</td>
+            <td>${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}</td>
+            <td style="color: ${remainingColor}; font-weight: bold;">${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}</td>
+            <td><span class="${statusClass}">${invoice.status}</span></td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="openPaymentModal('${invoice.invoiceId}')" ${isFullyPaid ? 'disabled' : ''}>Add Payment</button>
+                <button class="btn btn-sm btn-secondary" onclick="openViewPaymentsModal('${invoice.invoiceId}')">View Payments</button> 
+                <button class="btn btn-sm btn-warning" onclick="editSaleInvoice('${invoice.invoiceId}')">Edit</button>
+                <button class="btn btn-sm btn-primary" onclick="generateInvoicePDF('${invoice.invoiceId}')">PDF</button>
+                <button class="btn btn-sm btn-danger" onclick="initiateSellReturn('${invoice.invoiceId}')">Return</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// --- NEW FUNCTION: GENERATE FILTERED SALES & LEDGER PDF REPORT ---
+function generateSalesLedgerReportPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let yPos = 20;
+
+    // Filtered invoices get karein
+    let filtered;
+    if (currentInvoiceFilter === 'fully-paid') {
+        filtered = partialPaymentInvoices.filter(inv => inv.remainingBalance <= 0.01);
+    } else if (currentInvoiceFilter === 'partially-paid') {
+        filtered = partialPaymentInvoices.filter(inv => inv.remainingBalance > 0.01);
+    } else { 
+        filtered = [...partialPaymentInvoices];
+    }
+
+    const now = typeof getCloudDate === 'function' ? getCloudDate() : new Date();
+    let periodTitle = "All Time";
+
+    if (currentSalesDateFilter === 'today') {
+        const todayStr = getLocalDateString(now);
+        periodTitle = `Today (${todayStr})`;
+        filtered = filtered.filter(inv => getLocalDateString(inv.createdAt || (inv.payments && inv.payments[0]?.date)) === todayStr);
+    } else if (currentSalesDateFilter === 'yesterday') {
+        const yDate = new Date(now);
+        yDate.setDate(yDate.getDate() - 1);
+        const yesterdayStr = getLocalDateString(yDate);
+        periodTitle = `Yesterday (${yesterdayStr})`;
+        filtered = filtered.filter(inv => getLocalDateString(inv.createdAt || (inv.payments && inv.payments[0]?.date)) === yesterdayStr);
+    } else if (currentSalesDateFilter === '7days') {
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+        periodTitle = `Last 7 Days (From ${getLocalDateString(sevenDaysAgo)})`;
+        filtered = filtered.filter(inv => new Date(inv.createdAt || (inv.payments && inv.payments[0]?.date)) >= sevenDaysAgo);
+    } else if (currentSalesDateFilter === 'custom') {
+        const fromVal = document.getElementById('sl-from-date')?.value;
+        const toVal = document.getElementById('sl-to-date')?.value;
+        periodTitle = `Date Filter (${fromVal || 'Start'} to ${toVal || 'End'})`;
+
+        if (fromVal) {
+            const fromDateObj = new Date(fromVal + 'T00:00:00');
+            filtered = filtered.filter(inv => new Date(inv.createdAt || (inv.payments && inv.payments[0]?.date)) >= fromDateObj);
+        }
+        if (toVal) {
+            const toDateObj = new Date(toVal + 'T23:59:59');
+            filtered = filtered.filter(inv => new Date(inv.createdAt || (inv.payments && inv.payments[0]?.date)) <= toDateObj);
+        }
+    }
+
+    const searchQuery = (document.getElementById('partial-search-input')?.value || '').toLowerCase().trim();
+    if (searchQuery) {
+        filtered = filtered.filter(inv => 
+            (inv.customerName && inv.customerName.toLowerCase().includes(searchQuery)) ||
+            (inv.customerPhone && inv.customerPhone.toLowerCase().includes(searchQuery)) ||
+            String(inv.invoiceId).includes(searchQuery)
+        );
+    }
+
+    if (filtered.length === 0) {
+        alert("Selected filters ke mutabiq koi invoice record nahi mila!");
+        return;
+    }
+
+    filtered.sort((a,b) => b.invoiceId - a.invoiceId);
+
+    // Totals calculate karein
+    const totalSales = filtered.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const totalPaid = filtered.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+    const totalRemaining = filtered.reduce((sum, inv) => sum + (inv.remainingBalance || 0), 0);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+    doc.text(appSettings.restaurantName || "Umer Brothers", 105, yPos, { align: 'center' }); yPos += 8;
+    
+    doc.setFontSize(14);
+    doc.text(`Sales & Customer Ledger Report`, 105, yPos, { align: 'center' }); yPos += 7;
+    
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    doc.text(`Period: ${periodTitle} | Status: ${currentInvoiceFilter.toUpperCase()} | Total Invoices: ${filtered.length}`, 105, yPos, { align: 'center' }); yPos += 10;
+
+    const tableData = filtered.map(inv => [
+        inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : '-',
+        `#${inv.invoiceId}`,
+        inv.customerName || 'N/A',
+        `${CURRENCY_SYMBOL}${inv.totalAmount.toFixed(2)}`,
+        `${CURRENCY_SYMBOL}${inv.paidAmount.toFixed(2)}`,
+        `${CURRENCY_SYMBOL}${inv.remainingBalance.toFixed(2)}`,
+        inv.status || '-'
+    ]);
+
+    doc.autoTable({
+        startY: yPos,
+        head: [['Date', 'Inv ID', 'Customer Name', 'Total Bill (Dr)', 'Paid (Cr)', 'Remaining', 'Status']],
+        body: tableData,
+        foot: [[
+            'TOTALS:',
+            '',
+            '',
+            `${CURRENCY_SYMBOL}${totalSales.toFixed(2)}`,
+            `${CURRENCY_SYMBOL}${totalPaid.toFixed(2)}`,
+            `${CURRENCY_SYMBOL}${totalRemaining.toFixed(2)}`,
+            ''
+        ]],
+        theme: 'grid',
+        styles: { fontSize: 9, textColor: [0, 0, 0] },
+        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+
+    doc.save(`Sales_Ledger_Report_${currentSalesDateFilter}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 function openPaymentModal(invoiceId) {
@@ -9670,10 +9836,6 @@ async function openModule(evt, moduleName) {
             renderProductStockReport('daily');
         }
         if (moduleName === 'PartialPayments') { // POS
-            if (moduleName === 'SalesLedger') {
-            await dbFetchInvoices();
-            filterInvoices(currentInvoiceFilter || 'partially-paid');
-        }
             await dbFetchProducts();
             await dbFetchInvoices();
             clearPartialPaymentForm();
@@ -9681,6 +9843,10 @@ async function openModule(evt, moduleName) {
             renderPartialProductSelector();
             renderPartialInvoiceCart();
             togglePaymentMode('cash');
+        }
+        if (moduleName === 'SalesLedger') {
+            await dbFetchInvoices();
+            filterInvoices(currentInvoiceFilter || 'partially-paid');
         }
         // openModule function ke andar is hissay ko badlein:
 if (moduleName === 'SellReturn') {
