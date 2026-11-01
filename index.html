@@ -5871,9 +5871,10 @@ function generateExpenseVoucherPDF(expense) {
     doc.save(`ExpenseVoucher_${expense.category}_${expense.date}.pdf`);
 }
 
-function addExpense() {
+// ====== NAYA FIXED CODE (PASTE HERE) ======
+async function addExpense() {
     if (editingExpenseId) {
-        saveExpenseChanges();
+        await saveExpenseChanges();
         return;
     }
 
@@ -5887,27 +5888,113 @@ function addExpense() {
         return;
     }
 
-    const newExpense = {
-        id: 'exp' + Date.now(),
-        category: category,
-        amount: amount,
-        description: description,
-        date: date,
-        createdAt: new Date().toISOString()
-    };
+    const btn = document.getElementById('btn-add-expense');
+    const originalText = btn ? btn.innerText : 'Add Expense';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Saving Expense...";
+    }
 
-    expenses.push(newExpense);
-    saveExpenses();
-    
-    addTransactionToCashBook(`Expense: ${category} - ${description}`, 'out', amount, date, 'cb_exp_' + newExpense.id);
+    try {
+        const newExpense = {
+            id: 'exp' + Date.now(),
+            category: category,
+            amount: amount,
+            description: description,
+            date: date,
+            createdAt: new Date().toISOString()
+        };
 
-    alert("Expense added successfully!");
-    generateExpenseVoucherPDF(newExpense);
-    refreshAll();
-    
-    const historyTab = document.querySelector('.sub-tab[onclick*="ExpenseHistory"]');
-    if(historyTab) openModule({ currentTarget: historyTab }, 'ExpenseHistory');
+        expenses.push(newExpense);
+        
+        // Wait until expense is completely saved to LocalStorage and Firestore
+        await saveExpenses();
+        
+        // Add to Cash Book entry
+        addTransactionToCashBook(`Expense: ${category} - ${description}`, 'out', amount, date, 'cb_exp_' + newExpense.id);
+
+        alert("Expense added successfully!");
+        generateExpenseVoucherPDF(newExpense);
+        
+        // Clear the form fields
+        clearExpenseForm(true);
+        refreshAll();
+
+        // Switch to Expense History safely
+        const historyTab = document.querySelector('.sub-tab[onclick*="ExpenseHistory"]');
+        if (historyTab) {
+            await openModule({ currentTarget: historyTab }, 'ExpenseHistory');
+        }
+    } catch (err) {
+        console.error("Expense Save Error:", err);
+        alert("Expense save error: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    }
 }
+
+async function saveExpenseChanges() {
+    if (!editingExpenseId) return;
+
+    const expenseIndex = expenses.findIndex(e => e.id === editingExpenseId);
+    if (expenseIndex === -1) {
+        alert("Original expense record not found.");
+        clearExpenseForm(true);
+        return;
+    }
+
+    const originalExpense = expenses[expenseIndex];
+
+    const newCategory = document.getElementById('expense-category').value;
+    const newAmount = parseFloat(document.getElementById('expense-amount').value);
+    const newDescription = document.getElementById('expense-description').value.trim();
+    const newDate = document.getElementById('expense-date').value;
+
+    if (!newCategory || isNaN(newAmount) || newAmount <= 0 || !newDate) {
+        alert("Please fill in all required fields (Category, Amount, Date).");
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-save-expense-changes');
+    const originalText = saveBtn ? saveBtn.innerText : 'Save Changes';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = "Updating...";
+    }
+
+    try {
+        updateTransactionInCashBook('cb_exp_' + originalExpense.id, `Expense: ${newCategory} - ${newDescription}`, 'out', newAmount, newDate);
+
+        expenses[expenseIndex].category = newCategory;
+        expenses[expenseIndex].amount = newAmount;
+        expenses[expenseIndex].description = newDescription;
+        expenses[expenseIndex].date = newDate;
+
+        // Wait until updated dataset is saved completely
+        await saveExpenses();
+        alert("Expense updated successfully!");
+        
+        clearExpenseForm(true);
+        refreshAll();
+        
+        const historyTab = document.querySelector('.sub-tab[onclick*="ExpenseHistory"]');
+        if (historyTab) {
+            await openModule({ currentTarget: historyTab }, 'ExpenseHistory');
+        }
+    } catch (err) {
+        console.error("Expense Update Error:", err);
+        alert("Update error: " + err.message);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = originalText;
+        }
+    }
+}
+// ==========================================
 
 function editExpense(expenseId) {
     const expense = expenses.find(e => e.id === expenseId);
