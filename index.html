@@ -9531,31 +9531,40 @@ async function saveUserSpecificPermissions() {
     const selectedPermissions = Array.from(checkedBoxes).map(cb => cb.value);
     user.permissions = selectedPermissions;
 
-    try {
-        const ownerIdToLink = shopOwnerId || (loggedInUser ? (loggedInUser.id || loggedInUser.uid) : null);
+    const ownerIdToLink = shopOwnerId || (loggedInUser ? (loggedInUser.id || loggedInUser.uid) : null);
+    user.shopOwnerId = ownerIdToLink;
 
-        // Permissions ke sath sath Admin ki shopOwnerId bhi user ke record mein save karein
-        await db.collection('users').doc(userId).update({
+    // Pehle local system mein save karein taake delay na ho
+    saveUsers();
+
+    try {
+        // Firestore mein permissions aur shopOwnerId save karein
+        await db.collection('users').doc(userId).set({
             permissions: selectedPermissions,
             shopOwnerId: ownerIdToLink
-        });
+        }, { merge: true });
 
-        // Master config ko bhi update karein
+        // Master config update karein (optional safe block)
         if (ownerIdToLink) {
-            await db.collection('systemConfig').doc('shopMaster').set({
-                ownerId: ownerIdToLink,
-                expiryDate: CLOUD_FEE_EXPIRY_DATE
-            }, { merge: true });
+            try {
+                await db.collection('systemConfig').doc('shopMaster').set({
+                    ownerId: ownerIdToLink,
+                    expiryDate: CLOUD_FEE_EXPIRY_DATE
+                }, { merge: true });
+            } catch(cfgErr) {
+                console.warn("shopMaster update skipped:", cfgErr);
+            }
         }
-
-        user.shopOwnerId = ownerIdToLink;
-        saveUsers();
         
         alert(`User "${user.name}" ki permissions aur live shop data kamyabi se link ho gaya!`);
         renderUserPermissions();
     } catch (e) {
-        console.error("Error saving permissions to Firestore:", e);
-        alert("Permissions save karne mein masla pesh aya: " + e.message);
+        console.error("Firestore Save Error:", e);
+        if (e.message && e.message.includes("permission")) {
+            alert("Firebase Rules Block Error! Meharbani karke Firebase Console mein ja kar Rules Publish karein jaisa Step 1 mein bataya gaya hai.");
+        } else {
+            alert("Permissions save karne mein masla pesh aya: " + e.message);
+        }
     }
 }
 
