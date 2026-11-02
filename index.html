@@ -3148,27 +3148,71 @@ let isAppInitialized = false;
 let isCreatingInvoice = false;
 const { jsPDF } = window.jspdf;
 
-// --- NAYA CODE YAHAN SE SHURU HOTA HAI ---
 let shopOwnerId = null;
 
 async function setShopOwnerId() {
-    if (loggedInUser.role === 'admin') {
+    if (!loggedInUser) return;
+
+    // 1. Agar loggedInUser Admin ya Superadmin hai toh wahi shopOwner hai
+    if (loggedInUser.role === 'admin' || loggedInUser.role === 'superadmin' || loggedInUser.email?.toLowerCase() === 'mrjunaidk2@gmail.com') {
         shopOwnerId = loggedInUser.id || loggedInUser.uid;
-    } else {
         try {
-            const snapshot = await db.collection('users').where('role', '==', 'admin').limit(1).get();
-            if (!snapshot.empty) {
-                shopOwnerId = snapshot.docs[0].id;
-            } else {
-                shopOwnerId = loggedInUser.id || loggedInUser.uid;
-            }
+            await db.collection('systemConfig').doc('shopMaster').set({
+                ownerId: shopOwnerId,
+                ownerEmail: loggedInUser.email || '',
+                expiryDate: CLOUD_FEE_EXPIRY_DATE
+            }, { merge: true });
+            localStorage.setItem('pos_master_shop_owner_id', shopOwnerId);
         } catch(e) {
-            console.error("Admin ID fetch error:", e);
-            shopOwnerId = loggedInUser.id || loggedInUser.uid;
+            console.warn("Could not write shopMaster config:", e);
         }
+        return;
     }
+
+    // 2. Agar user document mein shopOwnerId pehle se linked hai
+    if (loggedInUser.shopOwnerId) {
+        shopOwnerId = loggedInUser.shopOwnerId;
+        return;
+    }
+
+    // 3. Central Cloud Config (shopMaster) se Admin ID lein
+    try {
+        const masterDoc = await db.collection('systemConfig').doc('shopMaster').get();
+        if (masterDoc.exists && masterDoc.data()?.ownerId) {
+            shopOwnerId = masterDoc.data().ownerId;
+            return;
+        }
+    } catch(e) {
+        console.warn("shopMaster read error:", e);
+    }
+
+    // 4. Local browser storage fallback
+    const localSavedOwner = localStorage.getItem('pos_master_shop_owner_id');
+    if (localSavedOwner) {
+        shopOwnerId = localSavedOwner;
+        return;
+    }
+
+    // 5. Cloud Database se Main Admin / Superadmin dhoondein
+    try {
+        let snapshot = await db.collection('users').where('role', '==', 'admin').limit(1).get();
+        if (snapshot.empty) {
+            snapshot = await db.collection('users').where('role', '==', 'superadmin').limit(1).get();
+        }
+        if (snapshot.empty) {
+            snapshot = await db.collection('users').where('email', '==', 'mrjunaidk2@gmail.com').limit(1).get();
+        }
+        if (!snapshot.empty) {
+            shopOwnerId = snapshot.docs[0].id;
+            return;
+        }
+    } catch(e) {
+        console.error("Admin ID search error:", e);
+    }
+
+    // Fallback
+    shopOwnerId = loggedInUser.id || loggedInUser.uid;
 }
-// --- NAYA CODE YAHAN KHATAM HOTA HAI ---
 
 
 
@@ -9488,15 +9532,26 @@ async function saveUserSpecificPermissions() {
     user.permissions = selectedPermissions;
 
     try {
-        // Firestore mein direct user ke document ki permissions update karein
+        const ownerIdToLink = shopOwnerId || (loggedInUser ? (loggedInUser.id || loggedInUser.uid) : null);
+
+        // Permissions ke sath sath Admin ki shopOwnerId bhi user ke record mein save karein
         await db.collection('users').doc(userId).update({
-            permissions: selectedPermissions
+            permissions: selectedPermissions,
+            shopOwnerId: ownerIdToLink
         });
 
-        // Local storage aur global backup ke liye save karein
+        // Master config ko bhi update karein
+        if (ownerIdToLink) {
+            await db.collection('systemConfig').doc('shopMaster').set({
+                ownerId: ownerIdToLink,
+                expiryDate: CLOUD_FEE_EXPIRY_DATE
+            }, { merge: true });
+        }
+
+        user.shopOwnerId = ownerIdToLink;
         saveUsers();
         
-        alert(`User "${user.name}" ki permissions Cloud database aur local storage mein save ho gayi hain!`);
+        alert(`User "${user.name}" ki permissions aur live shop data kamyabi se link ho gaya!`);
         renderUserPermissions();
     } catch (e) {
         console.error("Error saving permissions to Firestore:", e);
@@ -9627,41 +9682,36 @@ function updateUserNav() {
 document.addEventListener('DOMContentLoaded', () => {
     loadGlobalData();
 
-    // Firebase Auth State Listener (Fixed Version)
+    // Firebase Auth State Listener (Direct Fresh Firestore Sync)
     auth.onAuthStateChanged(async (user) => {
         const loginBtn = document.getElementById('login-button');
         const registerBtn = document.getElementById('register-button');
 
         if (user) {
             try {
-                // 1. Agar session mojud nahi toh Firestore Database se mukammal user load karein
-                let cachedSession = sessionStorage.getItem('active_user_session');
-                let userData = cachedSession ? JSON.parse(cachedSession) : null;
+                // Hamesha Firestore se live fresh user data lein
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                let userData = userDoc.exists ? userDoc.data() : null;
 
-                if (!userData || !userData.name) {
-                    const userDoc = await db.collection('users').doc(user.uid).get();
-                    if (userDoc.exists) {
-                        userData = userDoc.data();
-                    }
+                if (!userData) {
+                    alert("User record database mein nahi mila.");
+                    auth.signOut();
+                    return;
                 }
 
-                // 2. Approval check (Super Admin aur Admin ko skip karega)
                 const isSuperAdminEmail = user.email && user.email.toLowerCase() === "mrjunaidk2@gmail.com";
-                if (!isSuperAdminEmail && userData && userData.status !== 'Approved' && userData.role !== 'admin' && userData.role !== 'superadmin') {
+                if (!isSuperAdminEmail && userData.status !== 'Approved' && userData.role !== 'admin' && userData.role !== 'superadmin') {
                     alert("Aapka account PENDING hai. Admin ki approval ka intezar karein.");
                     auth.signOut();
                     return;
                 }
 
-                // 3. User data ko properly assign karein taake undefined na aaye
                 loggedInUser = { id: user.uid, ...userData };
                 sessionStorage.setItem('active_user_session', JSON.stringify(loggedInUser));
 
-                // 4. UI Switch karein
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('main-app').style.display = 'flex';
                 
-                // 5. App initialize karein
                 await initializeApp();
 
             } catch (err) {
@@ -10382,15 +10432,17 @@ async function approveUser(userId) {
         const expiryDate = new Date(); 
         expiryDate.setDate(expiryDate.getDate() + parseInt(days)); 
         const approvedUntil = expiryDate.toISOString();
+        const ownerIdToLink = shopOwnerId || (loggedInUser ? (loggedInUser.id || loggedInUser.uid) : null);
 
-        // Firestore database mein update
+        // Firestore database mein status ke sath shopOwnerId link karein
         await db.collection('users').doc(userId).update({ 
             status: 'Approved',
-            approved_until: approvedUntil
+            approved_until: approvedUntil,
+            shopOwnerId: ownerIdToLink
         });
 
-        alert("User Approved successfully");
-        await renderAdminDashboard(); // UI refresh karein
+        alert("User Approved successfully aur shop data link ho gaya!");
+        await renderAdminDashboard(); 
     } catch (e) { 
         alert("Error: " + e.message); 
     }
@@ -10811,9 +10863,8 @@ function deleteCashBookTransaction(id) {
 // CLOUD FEE SUBSCRIPTION LOCK SYSTEM (HARDCODED)
 // ==========================================
 
-// YAHAN AAPNE EXPIRY DATE SET KARNI HAI (YYYY-MM-DD format mein)
-// Misal ke taur par: Agle saal ki date dal dein. Agar 1 din dena hai to kal ki date dal dein.
-const CLOUD_FEE_EXPIRY_DATE = "2027-03-14T23:59:59"; 
+// Exact 3 Months Software Expiry Date (February 2027 tak)
+const CLOUD_FEE_EXPIRY_DATE = "2027-02-02T23:59:59"; 
 
 function checkCloudFeeStatus(adminData) {
     const statusMsg = document.getElementById('trial-status-message');
@@ -10821,14 +10872,7 @@ function checkCloudFeeStatus(adminData) {
     const authContainer = document.getElementById('auth-container');
     const mainApp = document.getElementById('main-app');
 
-    // Super Admin ko kabhi bhi software lock nahi hoga
-    if (loggedInUser && (loggedInUser.role === 'superadmin' || loggedInUser.email?.toLowerCase() === 'mrjunaidk2@gmail.com')) {
-        if (lockScreen) lockScreen.style.display = 'none';
-        if (statusMsg) statusMsg.innerHTML = `<span style="color:#ef4444; font-weight:bold;">👑 SUPER ADMIN ACTIVE</span>`;
-        return true;
-    }
-
-    // 1. Super Admin ka Emergency / Force Lock check
+    // 1. Force Lock Check (Super Admin Emergency Shut-down)
     if (adminData && adminData.isForceLocked === true) {
         if (authContainer) authContainer.style.display = 'none';
         if (mainApp) mainApp.style.display = 'none';
@@ -10843,18 +10887,37 @@ function checkCloudFeeStatus(adminData) {
         return false;
     }
 
-    // 2. Date Expiry check
-    let expiryDate = new Date("2027-03-14T23:59:59");
-    if (adminData && adminData.approved_until) {
+    // 2. Expiry Determination: Sub-user ki personal date nahi, sirf Shop Admin ki asal Cloud Expiry use hogi
+    let expiryDate = null;
+    if (adminData && adminData.approved_until && (adminData.role === 'admin' || adminData.role === 'superadmin')) {
         expiryDate = new Date(adminData.approved_until);
-    } else if (loggedInUser && loggedInUser.approved_until) {
-        expiryDate = new Date(loggedInUser.approved_until);
+    } else {
+        expiryDate = new Date(CLOUD_FEE_EXPIRY_DATE);
     }
 
     const now = getCloudDate();
     const timeDiff = expiryDate - now;
     const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
+    // Status bar badge: Sabhi users (Admin, Ali masood, etc.) ko exact 3 Months dikhayega
+    let cloudStatusHTML = '';
+    if (daysRemaining > 30) {
+        const monthsRemaining = Math.floor(daysRemaining / 30);
+        cloudStatusHTML = `☁️ <span style="color:#14b8a6; font-weight:bold;">Cloud Active: ${monthsRemaining} Month(s) left</span>`;
+    } else if (daysRemaining > 0) {
+        cloudStatusHTML = `⚠️ <span style="color:#ef4444; font-weight:bold;">Cloud Fee Due in ${daysRemaining} Day(s)!</span>`;
+    } else {
+        cloudStatusHTML = `🔴 <span style="color:#ef4444; font-weight:bold;">Software Expired</span>`;
+    }
+
+    // Super Admin view
+    if (loggedInUser && (loggedInUser.role === 'superadmin' || loggedInUser.email?.toLowerCase() === 'mrjunaidk2@gmail.com')) {
+        if (lockScreen) lockScreen.style.display = 'none';
+        if (statusMsg) statusMsg.innerHTML = `${cloudStatusHTML} <small style="color:#ef4444; font-weight:bold; margin-left:8px;">[SUPER ADMIN]</small>`;
+        return true;
+    }
+
+    // Expiry lock screen check
     if (now > expiryDate) {
         if (authContainer) authContainer.style.display = 'none';
         if (mainApp) mainApp.style.display = 'none';
@@ -10870,12 +10933,7 @@ function checkCloudFeeStatus(adminData) {
     } else {
         if (lockScreen) lockScreen.style.display = 'none';
         if (statusMsg) {
-            if (daysRemaining > 30) {
-                const monthsRemaining = Math.floor(daysRemaining / 30);
-                statusMsg.innerHTML = `☁️ <span style="color:#14b8a6; font-weight:bold;">Cloud Active: ${monthsRemaining} Month(s) left</span>`;
-            } else if (daysRemaining > 0) {
-                statusMsg.innerHTML = `⚠️ <span style="color:#ef4444; font-weight:bold;">Cloud Fee Due in ${daysRemaining} Day(s)!</span>`;
-            }
+            statusMsg.innerHTML = cloudStatusHTML;
         }
         return true;
     }
