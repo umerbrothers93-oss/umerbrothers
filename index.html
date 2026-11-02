@@ -8598,6 +8598,9 @@ async function handleLogin() {
         loginBtn.innerText = "Processing...";
         loginBtn.disabled = true;
 
+        // Login button dabane par active session flag set karein
+        sessionStorage.setItem('user_actively_logged_in', 'true');
+
         if (email.toLowerCase() === "mrjunaidk2@gmail.com" && password === "admin123") {
             try {
                 await auth.signInWithEmailAndPassword(email, password);
@@ -8628,6 +8631,7 @@ async function handleLogin() {
         await auth.signInWithEmailAndPassword(email, password);
 
     } catch(e) {
+        sessionStorage.removeItem('user_actively_logged_in');
         console.error("Login Error:", e);
         alert("Authentication failed: " + (e.message || "Invalid credentials."));
     } finally {
@@ -8758,7 +8762,7 @@ function checkActiveSession() {
     return false;
 }
 
-function handleLogout() { 
+async function handleLogout() { 
     if (loggedInUser) { 
         const activeSession = sessions.find(s => s.userId === loggedInUser.id && !s.logoutTime); 
         if (activeSession) { 
@@ -8767,15 +8771,30 @@ function handleLogout() {
             saveSessions(); 
         } 
     }
-    sessionStorage.removeItem('active_user_session');
-    loggedInUser = null; 
     
-    // Firebase Auth se bhi user ko safe logout karein
-    auth.signOut().then(() => {
-        location.reload(); 
-    }).catch(() => {
-        location.reload();
-    });
+    // Mukammal session flags khatam karein taake auto login na ho
+    sessionStorage.removeItem('user_actively_logged_in');
+    sessionStorage.removeItem('active_user_session');
+    sessionStorage.clear();
+    loggedInUser = null; 
+
+    try {
+        await auth.signOut();
+    } catch (e) {
+        console.error("SignOut error:", e);
+    }
+
+    // Input fields ko khali karein
+    const userField = document.getElementById('username');
+    const passField = document.getElementById('password');
+    if (userField) userField.value = '';
+    if (passField) passField.value = '';
+
+    // Screen ko login box par set karein
+    document.getElementById('main-app').style.display = 'none';
+    document.getElementById('auth-container').style.display = 'flex';
+
+    location.reload();
 }
 
 function createSession(userId) { 
@@ -8796,8 +8815,28 @@ function renderAllUsersTable() {
     const searchQuery = document.getElementById('user-search-input').value.toLowerCase(); 
     tbody.innerHTML = ''; 
     
-    const filteredUsers = users.filter(user => user.role !== 'admin' && (!searchQuery || (user.phone && user.phone.toLowerCase().includes(searchQuery)))); 
+    // Super Administrator aur Admin dono ko table se hide karein
+    const filteredUsers = users.filter(user => {
+        const isSuperAdmin = user.role === 'superadmin' || 
+                             user.username === 'superadmin' || 
+                             user.email?.toLowerCase() === 'mrjunaidk2@gmail.com' ||
+                             (user.name && user.name.toLowerCase().includes('super administrator'));
+        const isAdmin = user.role === 'admin';
+
+        if (isSuperAdmin || isAdmin) return false;
+
+        const matchesSearch = !searchQuery || 
+                              (user.phone && user.phone.toLowerCase().includes(searchQuery)) ||
+                              (user.name && user.name.toLowerCase().includes(searchQuery)) ||
+                              (user.username && user.username.toLowerCase().includes(searchQuery));
+        return matchesSearch;
+    }); 
     
+    if (filteredUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:15px;">No client users found.</td></tr>';
+        return;
+    }
+
     filteredUsers.forEach(user => { 
         const isOnline = isUserOnline(user.id); 
         const onlineStatusText = isOnline ? 'Online' : 'Offline'; 
@@ -8809,8 +8848,17 @@ function renderAllUsersTable() {
         const expiryDisplay = expiryDate ? expiryDate.toLocaleDateString() : 'N/A'; 
         
         const row = document.createElement('tr'); 
-        // user.username ki jagah user.username || user.email ka istemal kiya gaya hai
-        row.innerHTML = `<td>${user.username || user.email || 'N/A'}</td> <td>${user.name}</td> <td>${user.phone || 'N/A'}</td> <td><span style="color: ${onlineStatusColor};">${onlineStatusText}</span></td> <td><span style="color: ${paidStatusColor};">${paidStatus} (Expires: ${expiryDisplay})</span></td> <td> <button class="btn btn-warning btn-sm" onclick="extendApproval('${user.id}')">Extend</button> <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">Delete</button> </td>`; 
+        row.innerHTML = `
+            <td>${user.username || user.email || 'N/A'}</td> 
+            <td>${user.name}</td> 
+            <td>${user.phone || 'N/A'}</td> 
+            <td><span style="color: ${onlineStatusColor};">${onlineStatusText}</span></td> 
+            <td><span style="color: ${paidStatusColor};">${paidStatus} (Expires: ${expiryDisplay})</span></td> 
+            <td> 
+                <button class="btn btn-warning btn-sm" onclick="extendApproval('${user.id}')">Extend</button> 
+                <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}')">Delete</button> 
+            </td>
+        `; 
         tbody.appendChild(row); 
     }); 
 }
@@ -9466,9 +9514,16 @@ function populateUserDropdown() {
     
     select.innerHTML = '<option value="">-- Select User --</option>';
     
-    // Saare users (jo admin nahi hain) dropdown mein dalien
+    // Super Admin aur Admin dono ko dropdown se filter karein
     users.forEach(u => {
-        if (u.role !== 'admin') {
+        const isSuperAdmin = u.role === 'superadmin' || 
+                             u.username === 'superadmin' || 
+                             u.email?.toLowerCase() === 'mrjunaidk2@gmail.com' ||
+                             (u.name && u.name.toLowerCase().includes('super administrator'));
+        const isAdmin = u.role === 'admin';
+
+        // Sirf aam clients / employees ko dropdown mein dikhayein
+        if (!isSuperAdmin && !isAdmin) {
             const option = document.createElement('option');
             option.value = u.id;
             option.textContent = `${u.name} (${u.email})`;
@@ -9691,27 +9746,29 @@ function updateUserNav() {
 document.addEventListener('DOMContentLoaded', () => {
     loadGlobalData();
 
-    // Firebase Auth State Listener (Direct Fresh Firestore Sync)
+    // Firebase Auth State Listener (Strict Manual Login Check)
     auth.onAuthStateChanged(async (user) => {
         const loginBtn = document.getElementById('login-button');
         const registerBtn = document.getElementById('register-button');
 
-        if (user) {
+        // Agar user ne "Login" button click nahi kiya toh auto login rok dein
+        const isActivelyLoggedIn = sessionStorage.getItem('user_actively_logged_in') === 'true';
+
+        if (user && isActivelyLoggedIn) {
             try {
-                // Hamesha Firestore se live fresh user data lein
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 let userData = userDoc.exists ? userDoc.data() : null;
 
                 if (!userData) {
                     alert("User record database mein nahi mila.");
-                    auth.signOut();
+                    await handleLogout();
                     return;
                 }
 
                 const isSuperAdminEmail = user.email && user.email.toLowerCase() === "mrjunaidk2@gmail.com";
                 if (!isSuperAdminEmail && userData.status !== 'Approved' && userData.role !== 'admin' && userData.role !== 'superadmin') {
                     alert("Aapka account PENDING hai. Admin ki approval ka intezar karein.");
-                    auth.signOut();
+                    await handleLogout();
                     return;
                 }
 
@@ -9726,7 +9783,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error("Auth profile load error:", err);
                 alert("Profile load karne mein masla aya: " + err.message);
-                auth.signOut();
+                await handleLogout();
             } finally {
                 if (loginBtn) {
                     loginBtn.innerText = "Login";
@@ -9734,8 +9791,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else {
-            // User logged out hai
-            sessionStorage.removeItem('active_user_session');
+            // Auto login band: Screen login par hi rahegi jab tak Login button na dabaya jaye
             loggedInUser = null;
             document.getElementById('auth-container').style.display = 'flex';
             document.getElementById('main-app').style.display = 'none';
