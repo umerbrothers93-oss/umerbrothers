@@ -4948,136 +4948,144 @@ async function generateInvoicePDF(invoiceId) {
         return;
     }
 
-    // Invoice ke har product ki image pehle se load/prepare karein
-    const preparedItems = await Promise.all(invoice.invoiceItems.map(async (item) => {
-        const product = products.find(p => p.id === item.id);
-        const imgUrl = (product && product.image_path) ? product.image_path : item.image_path;
-        const base64Img = await getBase64FromUrl(imgUrl);
-        return {
-            ...item,
-            preparedImg: base64Img
-        };
-    }));
-
-    const doc = new jsPDF();
-    let yPos = 15;
-
     const isCashSale = invoice.customerName === "Cash Customer" && invoice.remainingBalance <= 0.01;
+    const itemsCount = invoice.invoiceItems ? invoice.invoiceItems.length : 0;
+    const paymentsCount = invoice.payments ? invoice.payments.length : 0;
 
-    doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
-    doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-    doc.text(appSettings.restaurantAddress, 105, yPos, { align: 'center' }); yPos += 5;
-    doc.text(`Phone: ${appSettings.restaurantPhone}`, 105, yPos, { align: 'center' }); yPos += 10;
-    doc.setFontSize(16); doc.text(`INVOICE (${isCashSale ? 'CASH SALE' : invoice.status.toUpperCase()})`, 105, yPos, { align: 'center' }); yPos += 10;
+    // 80mm Roll ke mutabiq dynamic height calculate karna taake page zaya na ho
+    let estimatedHeight = 95 + (itemsCount * 7) + (paymentsCount * 6);
+    if (!isCashSale) estimatedHeight += 12;
+    if (estimatedHeight < 110) estimatedHeight = 110;
 
-    if (!isCashSale) {
-        const detailsTableData = [
-            ['Invoice ID:', invoice.invoiceId], 
-            ['Customer Name:', invoice.customerName],
-            ['Customer Phone:', invoice.customerPhone],
-            ['Date Created:', new Date(invoice.createdAt).toLocaleDateString()]
-        ];
-        doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
-        yPos = doc.previousAutoTable.finalY + 5;
-    } else {
-        const detailsTableData = [['Invoice ID:', invoice.invoiceId], ['Date Created:', new Date(invoice.createdAt).toLocaleDateString()]];
-        doc.autoTable({ startY: yPos, body: detailsTableData, theme: 'plain', styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
-        yPos = doc.previousAutoTable.finalY + 5;
+    // 80mm width thermal slip layout
+    const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: [80, estimatedHeight]
+    });
+
+    let yPos = 7;
+    doc.setTextColor(0, 0, 0);
+
+    // Shop Header
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text(appSettings.restaurantName || "Umer Brothers", 40, yPos, { align: 'center' }); yPos += 5;
+    
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    if (appSettings.restaurantAddress) {
+        const splitAddress = doc.splitTextToSize(appSettings.restaurantAddress, 72);
+        doc.text(splitAddress, 40, yPos, { align: 'center' });
+        yPos += (splitAddress.length * 3.5);
+    }
+    if (appSettings.restaurantPhone) {
+        doc.text(`Tel: ${appSettings.restaurantPhone}`, 40, yPos, { align: 'center' }); yPos += 4;
     }
 
-    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Purchased Items:', 14, yPos); yPos += 5;
-    
-    const itemsTableData = preparedItems.map(item => [
-        '', 
+    // Divider Line
+    doc.setLineWidth(0.3);
+    doc.line(4, yPos, 76, yPos); yPos += 4;
+
+    // Bill Title
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text(`INVOICE - #${invoice.invoiceId}`, 40, yPos, { align: 'center' }); yPos += 4;
+
+    // Details (2 Column layout for thermal paper)
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text(`Date: ${new Date(invoice.createdAt).toLocaleDateString()}`, 4, yPos);
+    doc.text(`Status: ${invoice.status}`, 76, yPos, { align: 'right' }); yPos += 3.5;
+
+    if (!isCashSale) {
+        doc.text(`Customer: ${invoice.customerName}`, 4, yPos); yPos += 3.5;
+        if (invoice.customerPhone && invoice.customerPhone !== 'N/A') {
+            doc.text(`Phone: ${invoice.customerPhone}`, 4, yPos); yPos += 3.5;
+        }
+    }
+
+    // Items Table (72mm width: 32mm + 10mm + 14mm + 16mm)
+    const itemsTableData = invoice.invoiceItems.map(item => [
         item.name,
         item.quantity,
-        `${CURRENCY_SYMBOL}${item.price.toFixed(2)}`,
-        `${CURRENCY_SYMBOL}${(item.quantity * item.price).toFixed(2)}`
+        Number(item.price).toFixed(2),
+        (item.quantity * item.price).toFixed(2)
     ]);
 
     doc.autoTable({
         startY: yPos,
-        head: [['Image', 'Product Name', 'Quantity', 'Unit Price', 'Subtotal']],
+        head: [['Item', 'Qty', 'Rate', 'Total']],
         body: itemsTableData,
-        theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 2, textColor: [0, 0, 0] },
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
-        bodyStyles: { minCellHeight: 16, valign: 'middle' },
+        theme: 'plain',
+        styles: { fontSize: 7.5, cellPadding: 1.5, textColor: [0, 0, 0] },
+        headStyles: { fontStyle: 'bold', borderBottom: 0.2, borderColor: [0, 0, 0] },
         columnStyles: {
-            0: { cellWidth: 20 }, 
-            1: { cellWidth: 'auto' },
-            2: { cellWidth: 20 },
-            3: { cellWidth: 30 },
-            4: { cellWidth: 30 }
+            0: { cellWidth: 32 },
+            1: { cellWidth: 10, halign: 'center' },
+            2: { cellWidth: 14, halign: 'right' },
+            3: { cellWidth: 16, halign: 'right' }
         },
-        margin: { left: 14, right: 14 },
-        didDrawCell: function(data) {
-            if (data.section === 'body' && data.column.index === 0) {
-                const rowIndex = data.row.index;
-                const item = preparedItems[rowIndex];
-                if (item && item.preparedImg) {
-                    const imgSize = 12; 
-                    const x = data.cell.x + (data.cell.width - imgSize) / 2;
-                    const y = data.cell.y + (data.cell.height - imgSize) / 2;
-                    try {
-                        doc.addImage(item.preparedImg, 'JPEG', x, y, imgSize, imgSize);
-                    } catch (e) {
-                        console.error("Image render error:", e);
-                    }
-                }
-            }
-        }
+        margin: { left: 4, right: 4 }
     });
 
-    yPos = doc.previousAutoTable.finalY + 10;
+    yPos = doc.previousAutoTable.finalY + 2;
 
+    // Summary Totals
     const summaryData = [
-        ['Total Amount:', `${CURRENCY_SYMBOL}${invoice.totalAmount.toFixed(2)}`],
-        ['Total Paid:', `${CURRENCY_SYMBOL}${invoice.paidAmount.toFixed(2)}`]
+        ['Total Bill:', `${CURRENCY_SYMBOL} ${invoice.totalAmount.toFixed(2)}`],
+        ['Paid Amount:', `${CURRENCY_SYMBOL} ${invoice.paidAmount.toFixed(2)}`]
     ];
-    if (!isCashSale) { 
-        summaryData.push(['Remaining Balance (Due):', `${CURRENCY_SYMBOL}${invoice.remainingBalance.toFixed(2)}`]); 
-    }
-    
-    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Payment Summary:', 14, yPos); yPos += 5;
-    
-    doc.autoTable({ startY: yPos, body: summaryData, theme: 'grid', styles: { fontSize: 10, cellPadding: 2, fontStyle: 'bold', textColor: [0, 0, 0] }, margin: { left: 14, right: 14 } });
-    yPos = doc.previousAutoTable.finalY + 10;
-
-    if (invoice.payments && invoice.payments.length > 0) {
-        doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0); doc.text('Payment History:', 14, yPos); yPos += 5;
-        const paymentTableData = invoice.payments.map(p => {
-            let method = p.method;
-            if (p.accountDetails) {
-                method += ` (${p.accountDetails})`;
-            }
-            const formattedAmount = p.amount < 0 
-                ? `-${CURRENCY_SYMBOL}${Math.abs(p.amount).toFixed(2)}` 
-                : `${CURRENCY_SYMBOL}${p.amount.toFixed(2)}`;
-
-            return [
-                new Date(p.date).toLocaleDateString(),
-                method,
-                formattedAmount,
-                p.notes || ''
-            ];
-        });
-        
-        doc.autoTable({ 
-            startY: yPos, 
-            head: [['Date', 'Method', 'Amount Paid', 'Notes']], 
-            body: paymentTableData, 
-            theme: 'grid', 
-            styles: { fontSize: 9, textColor: [0, 0, 0] }, 
-            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }, 
-            margin: { left: 14, right: 14 } 
-        });
-        yPos = doc.previousAutoTable.finalY + 10;
+    if (!isCashSale) {
+        summaryData.push(['Remaining Due:', `${CURRENCY_SYMBOL} ${invoice.remainingBalance.toFixed(2)}`]);
     }
 
-    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(0, 0, 0);
-    doc.text(appSettings.invoiceNote || 'No return no exchange no warranty', 14, yPos);
+    doc.autoTable({
+        startY: yPos,
+        body: summaryData,
+        theme: 'plain',
+        styles: { fontSize: 8, cellPadding: 1.2, fontStyle: 'bold', textColor: [0, 0, 0] },
+        columnStyles: {
+            0: { cellWidth: 42, halign: 'right' },
+            1: { cellWidth: 30, halign: 'right' }
+        },
+        margin: { left: 4, right: 4 }
+    });
+
+    yPos = doc.previousAutoTable.finalY + 2;
+
+    // Payments History (if multiple payments)
+    if (invoice.payments && invoice.payments.length > 1) {
+        const pData = invoice.payments.map(p => [
+            new Date(p.date).toLocaleDateString(),
+            p.method || 'Cash',
+            `${CURRENCY_SYMBOL} ${p.amount.toFixed(2)}`
+        ]);
+
+        doc.autoTable({
+            startY: yPos,
+            head: [['Date', 'Method', 'Paid']],
+            body: pData,
+            theme: 'plain',
+            styles: { fontSize: 7, cellPadding: 1, textColor: [0, 0, 0] },
+            headStyles: { fontStyle: 'bold', borderBottom: 0.1 },
+            columnStyles: {
+                0: { cellWidth: 26 },
+                1: { cellWidth: 22 },
+                2: { cellWidth: 24, halign: 'right' }
+            },
+            margin: { left: 4, right: 4 }
+        });
+        yPos = doc.previousAutoTable.finalY + 2;
+    }
+
+    // Footer / Invoice Note
+    doc.setLineWidth(0.2);
+    doc.line(4, yPos, 76, yPos); yPos += 3.5;
+
+    doc.setFontSize(7); doc.setFont('helvetica', 'italic');
+    const noteText = appSettings.invoiceNote || 'No return no exchange no warranty';
+    const splitNote = doc.splitTextToSize(noteText, 72);
+    doc.text(splitNote, 40, yPos, { align: 'center' }); yPos += (splitNote.length * 3);
+
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
+    doc.text("Thank you for your business!", 40, yPos, { align: 'center' });
 
     doc.save(`Invoice_${invoice.invoiceId}.pdf`);
 }
@@ -7810,69 +7818,83 @@ function generateGatePassPDF(gatePassRecord) {
         return;
     }
 
-    const doc = new jsPDF();
-    let yPos = 20;
-    const passDate = new Date(gatePassRecord.date).toLocaleDateString();
+    const itemsCount = gatePassRecord.items ? gatePassRecord.items.length : 0;
+    
+    // Dynamic height calculation taake slip jitni lambi ho utna hi roll nikle
+    let estimatedHeight = 85 + (itemsCount * 7.5);
+    if (estimatedHeight < 100) estimatedHeight = 100;
 
-    // 1. PDF ke saaray text ko explicitly Pure Black kar diya
+    // 80mm roll format
+    const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: [80, estimatedHeight]
+    });
+
+    let yPos = 7;
     doc.setTextColor(0, 0, 0);
 
-    doc.setFontSize(24); doc.setFont('helvetica', 'bold'); doc.text(appSettings.restaurantName, 105, yPos, { align: 'center' }); yPos += 8;
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(appSettings.restaurantAddress, 105, yPos, { align: 'center' }); yPos += 5;
-    doc.text(`Phone: ${appSettings.restaurantPhone}`, 105, yPos, { align: 'center' }); yPos += 12;
+    // Shop Header
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text(appSettings.restaurantName || "Umer Brothers", 40, yPos, { align: 'center' }); yPos += 5;
+    
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    if (appSettings.restaurantAddress) {
+        const splitAddress = doc.splitTextToSize(appSettings.restaurantAddress, 72);
+        doc.text(splitAddress, 40, yPos, { align: 'center' });
+        yPos += (splitAddress.length * 3.5);
+    }
+    if (appSettings.restaurantPhone) {
+        doc.text(`Tel: ${appSettings.restaurantPhone}`, 40, yPos, { align: 'center' }); yPos += 4;
+    }
 
-    doc.setFontSize(18); doc.text('Gate Pass', 105, yPos, { align: 'center' }); yPos += 8;
-    doc.setFontSize(12); doc.text(`Date: ${passDate}`, 14, yPos);
-    doc.text(`Pass ID: ${gatePassRecord.id}`, 196, yPos, { align: 'right' }); yPos += 12;
+    // Divider Line
+    doc.setLineWidth(0.3);
+    doc.line(4, yPos, 76, yPos); yPos += 4;
 
-    const columns = [['S.No.', 'Image', 'Product Name', 'Quantity']];
-    const data = gatePassRecord.items.map((item, index) =>[
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text('GATE PASS', 40, yPos, { align: 'center' }); yPos += 4;
+
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text(`Pass ID: ${gatePassRecord.id}`, 4, yPos);
+    doc.text(`Date: ${new Date(gatePassRecord.date).toLocaleDateString()}`, 76, yPos, { align: 'right' }); yPos += 4;
+
+    // Gate Pass Items Table (72mm width: 10mm + 46mm + 16mm)
+    const data = gatePassRecord.items.map((item, index) => [
         index + 1,
-        '', 
         item.name,
         item.quantity
     ]);
 
     doc.autoTable({
         startY: yPos,
-        head: columns,
+        head: [['#', 'Item Description', 'Qty']],
         body: data,
-        theme: 'grid',
-        // 2. Table ka data black aur Header ko halka grey kar diya
-        styles: { textColor: [0, 0, 0] },
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
-        bodyStyles: { minCellHeight: 20, valign: 'middle' }, 
+        theme: 'plain',
+        styles: { fontSize: 7.5, cellPadding: 1.5, textColor: [0, 0, 0] },
+        headStyles: { fontStyle: 'bold', borderBottom: 0.2, borderColor: [0, 0, 0] },
         columnStyles: {
-            0: { cellWidth: 15 },
-            1: { cellWidth: 25 }, 
-            3: { cellWidth: 30 }
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 46 },
+            2: { cellWidth: 16, halign: 'center' }
         },
-        didDrawCell: function(data) {
-            if (data.section === 'body' && data.column.index === 1) {
-                const rowIndex = data.row.index;
-                const itemId = gatePassRecord.items[rowIndex].id;
-                const product = products.find(p => p.id === itemId);
-                
-                if (product && product.image_path) {
-                    const imgSize = 15; 
-                    try {
-                         doc.addImage(product.image_path, 'JPEG', data.cell.x + 2, data.cell.y + 2, imgSize, imgSize);
-                    } catch(e) {
-                        console.error("Error adding image to PDF in Gate Pass:", e); 
-                    }
-                }
-            }
-        }
+        margin: { left: 4, right: 4 }
     });
-    yPos = doc.previousAutoTable.finalY + 25;
 
-    // 3. Signature lines aur text ko bhi completely black insure kar diya
+    yPos = doc.previousAutoTable.finalY + 12;
+
+    // Signatures for Gate Pass
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.line(20, yPos, 80, yPos);
-    doc.text('Prepared By', 35, yPos + 6);
-    doc.line(130, yPos, 190, yPos);
-    doc.text('Received By', 145, yPos + 6);
+    doc.setLineWidth(0.2);
+    
+    // Left signature line
+    doc.line(6, yPos, 34, yPos);
+    // Right signature line
+    doc.line(46, yPos, 74, yPos);
+
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.text('Prepared By', 20, yPos + 3.5, { align: 'center' });
+    doc.text('Received By', 60, yPos + 3.5, { align: 'center' });
 
     doc.save(`Gate_Pass_${gatePassRecord.id}.pdf`);
 }
