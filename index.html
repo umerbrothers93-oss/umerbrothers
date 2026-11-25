@@ -3116,13 +3116,13 @@ function getLocalDateString(dateInput = getCloudDate()) {
 
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD77GQbI_Pqw_OkHkrtrTRyqWd31wVY0lw",
-  authDomain: "umerbrothers-2ee8e.firebaseapp.com",
-  projectId: "umerbrothers-2ee8e",
-  storageBucket: "umerbrothers-2ee8e.firebasestorage.app",
-  messagingSenderId: "26499854625",
-  appId: "1:26499854625:web:3fab5879af5918716f8e60",
-  measurementId: "G-R23T66XT2E"
+  apiKey: "AIzaSyBikNeZBOjNMyI0KyKWpWud_l9EowWotQA",
+  authDomain: "korvexa-pos.firebaseapp.com",
+  projectId: "korvexa-pos",
+  storageBucket: "korvexa-pos.firebasestorage.app",
+  messagingSenderId: "663089875476",
+  appId: "1:663089875476:web:6da9af5a31cb636648f501",
+  measurementId: "G-YKHN60HV9L"
 };
 
 
@@ -4261,131 +4261,7 @@ function renderPartialInvoiceCart() {
     totalElement.textContent = `${CURRENCY_SYMBOL}${totalAmount.toFixed(2)}`;
 }
 
-async function addPartialPaymentInvoice() {
-    if (isCreatingInvoice) return; // Dobara click hone se lock karega
 
-    if (editingInvoiceId) {
-        saveSaleInvoiceChanges();
-        return;
-    }
-
-    const totalAmount = partialInvoiceCart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-
-    if (partialInvoiceCart.length === 0) {
-        alert("Please add products to the invoice first.");
-        return;
-    }
-    
-    let customerName, customerPhone, advancePayment, numInstallments;
-    const paymentMethod = document.getElementById('partial-payment-method').value;
-    const accountDetails = document.getElementById('partial-account-details').value.trim();
-
-    if (currentPaymentMode === 'credit') {
-        customerName = document.getElementById('partial-customer-name').value.trim();
-        customerPhone = document.getElementById('partial-customer-phone').value.trim();
-        advancePayment = parseFloat(document.getElementById('partial-advance-payment').value) || 0;
-        numInstallments = 0; 
-
-        if (!customerName || !customerPhone) {
-            alert("Please enter customer details (Name and Phone) for a credit sale.");
-            return;
-        }
-
-        if (advancePayment > totalAmount) {
-            alert("Advance payment cannot be greater than the total amount.");
-            return;
-        }
-    } else { 
-        customerName = "Cash Customer";
-        customerPhone = "N/A";
-        advancePayment = totalAmount; 
-        numInstallments = 0;
-    }
-
-    const createBtn = document.getElementById('btn-add-partial-invoice');
-    isCreatingInvoice = true;
-    if (createBtn) {
-        createBtn.disabled = true;
-        createBtn.innerText = "Creating Invoice...";
-    }
-
-    try {
-        // Database mein mojood sab se bara invoice number dhoond kar +1 karega (Duplicate ID khatam)
-        const highestExistingId = partialPaymentInvoices.reduce((max, inv) => {
-            const num = parseInt(inv.invoiceId, 10);
-            return !isNaN(num) && num > max ? num : max;
-        }, 0);
-
-        const configuredStart = parseInt(appSettings.nextInvoiceNumber, 10) || 100;
-        const newInvoiceId = Math.max(configuredStart, highestExistingId + 1);
-
-        appSettings.nextInvoiceNumber = newInvoiceId + 1;
-        await saveSettings(); 
-
-        // Stock minus karein
-        partialInvoiceCart.forEach(cartItem => {
-            const product = products.find(p => p.id === cartItem.id);
-            if (product) {
-                product.quantity -= cartItem.quantity;
-            }
-        });
-        await saveProducts();
-
-        const invoiceItemsWithCost = partialInvoiceCart.map(item => ({
-            ...item,
-            originalQuantity: item.quantity, 
-            costAtTimeOfSale: getCostPrice(item.id)
-        }));
-
-        const newInvoice = {
-            invoiceId: newInvoiceId, 
-            customerName: customerName,
-            customerPhone: customerPhone,
-            totalAmount: totalAmount,
-            paidAmount: advancePayment,
-            remainingBalance: totalAmount - advancePayment,
-            status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
-            installments: numInstallments,
-            payments: advancePayment > 0 ? [{ 
-                paymentId: 'pay' + Date.now(), 
-                amount: advancePayment, 
-                date: getLocalDateString() + 'T12:00:00.000Z', 
-                method: paymentMethod, 
-                accountDetails: accountDetails,
-                notes: "Initial Payment" 
-            }] : [],
-            createdAt: getLocalDateString() + 'T12:00:00.000Z',
-            invoiceItems: invoiceItemsWithCost 
-        };
-
-        partialPaymentInvoices.push(newInvoice);
-        await savePartialPaymentInvoices();
-
-        if (advancePayment > 0) {
-            addTransactionToCashBook(`Sale (Inv #${newInvoice.invoiceId}) - ${customerName}`, 'in', advancePayment, new Date().toISOString(), 'cb_sale_' + newInvoice.invoiceId);
-        }
-
-        generateInvoicePDF(newInvoice.invoiceId);
-        renderPartialPaymentTable();
-        clearPartialPaymentForm();
-        refreshAll(); 
-
-        if (currentPaymentMode === 'credit') {
-            alert(`New Invoice #${newInvoiceId} created for ${customerName}. Remaining balance: ${CURRENCY_SYMBOL}${newInvoice.remainingBalance.toFixed(2)}.`);
-        } else {
-            alert(`Cash Sale Invoice #${newInvoiceId} recorded successfully.`);
-        }
-    } catch (err) {
-        console.error("Invoice Error:", err);
-        alert("Invoice create karne mein masla pesh aya: " + err.message);
-    } finally {
-        isCreatingInvoice = false;
-        if (createBtn) {
-            createBtn.disabled = false;
-            createBtn.innerText = "Create Invoice";
-        }
-    }
-}
 
 // --- SALES & LEDGER DATE FILTER VARIABLES ---
 let currentSalesDateFilter = 'all'; // 'today', 'yesterday', '7days', 'custom', 'all'
@@ -7812,6 +7688,166 @@ function saveAndGenerateGatePass() {
     renderGatePassHistory();
 }
 
+// =========================================================
+// 1. UPDATED: ADD PARTIAL PAYMENT INVOICE (AUTO GATE PASS & PRINT)
+// =========================================================
+async function addPartialPaymentInvoice() {
+    if (isCreatingInvoice) return; // Prevent double click
+
+    if (editingInvoiceId) {
+        saveSaleInvoiceChanges();
+        return;
+    }
+
+    const totalAmount = partialInvoiceCart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+
+    if (partialInvoiceCart.length === 0) {
+        alert("Please add products to the invoice first.");
+        return;
+    }
+    
+    let customerName, customerPhone, advancePayment, numInstallments;
+    const paymentMethod = document.getElementById('partial-payment-method').value;
+    const accountDetails = document.getElementById('partial-account-details').value.trim();
+
+    if (currentPaymentMode === 'credit') {
+        customerName = document.getElementById('partial-customer-name').value.trim();
+        customerPhone = document.getElementById('partial-customer-phone').value.trim();
+        advancePayment = parseFloat(document.getElementById('partial-advance-payment').value) || 0;
+        numInstallments = 0; 
+
+        if (!customerName || !customerPhone) {
+            alert("Please enter customer details (Name and Phone) for a credit sale.");
+            return;
+        }
+
+        if (advancePayment > totalAmount) {
+            alert("Advance payment cannot be greater than the total amount.");
+            return;
+        }
+    } else { 
+        customerName = "Cash Customer";
+        customerPhone = "N/A";
+        advancePayment = totalAmount; 
+        numInstallments = 0;
+    }
+
+    const createBtn = document.getElementById('btn-add-partial-invoice');
+    isCreatingInvoice = true;
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerText = "Creating Invoice & Gate Pass...";
+    }
+
+    try {
+        // Calculate unique invoice ID
+        const highestExistingId = partialPaymentInvoices.reduce((max, inv) => {
+            const num = parseInt(inv.invoiceId, 10);
+            return !isNaN(num) && num > max ? num : max;
+        }, 0);
+
+        const configuredStart = parseInt(appSettings.nextInvoiceNumber, 10) || 100;
+        const newInvoiceId = Math.max(configuredStart, highestExistingId + 1);
+
+        appSettings.nextInvoiceNumber = newInvoiceId + 1;
+        await saveSettings(); 
+
+        // Deduct inventory stock
+        partialInvoiceCart.forEach(cartItem => {
+            const product = products.find(p => p.id === cartItem.id);
+            if (product) {
+                product.quantity -= cartItem.quantity;
+            }
+        });
+        await saveProducts();
+
+        const invoiceItemsWithCost = partialInvoiceCart.map(item => ({
+            ...item,
+            originalQuantity: item.quantity, 
+            costAtTimeOfSale: getCostPrice(item.id)
+        }));
+
+        const newInvoice = {
+            invoiceId: newInvoiceId, 
+            customerName: customerName,
+            customerPhone: customerPhone,
+            totalAmount: totalAmount,
+            paidAmount: advancePayment,
+            remainingBalance: totalAmount - advancePayment,
+            status: (totalAmount - advancePayment) <= 0.01 ? "Fully Paid" : "Partially Paid",
+            installments: numInstallments,
+            payments: advancePayment > 0 ? [{ 
+                paymentId: 'pay' + Date.now(), 
+                amount: advancePayment, 
+                date: getLocalDateString() + 'T12:00:00.000Z', 
+                method: paymentMethod, 
+                accountDetails: accountDetails,
+                notes: "Initial Payment" 
+            }] : [],
+            createdAt: getLocalDateString() + 'T12:00:00.000Z',
+            invoiceItems: invoiceItemsWithCost 
+        };
+
+        // 1. Save Sales Invoice
+        partialPaymentInvoices.push(newInvoice);
+        await savePartialPaymentInvoices();
+
+        // 2. Record cash in if advance payment is made
+        if (advancePayment > 0) {
+            addTransactionToCashBook(`Sale (Inv #${newInvoice.invoiceId}) - ${customerName}`, 'in', advancePayment, new Date().toISOString(), 'cb_sale_' + newInvoice.invoiceId);
+        }
+
+        // 3. Automatically Create and Save Gate Pass
+        const autoGatePassRecord = {
+            id: 'GP-' + newInvoice.invoiceId,
+            invoiceId: newInvoice.invoiceId,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            date: new Date().toISOString(),
+            items: partialInvoiceCart.map(item => ({
+                id: item.id,
+                name: item.name,
+                quantity: item.quantity
+            }))
+        };
+        gatePassLog.push(autoGatePassRecord);
+        await saveGatePassLog();
+
+        // 4. Download Invoice Receipt PDF
+        await generateInvoicePDF(newInvoice.invoiceId);
+
+        // 5. Automatically download Gate Pass PDF after 600ms delay to avoid browser popup blocks
+        setTimeout(() => {
+            generateGatePassPDF(autoGatePassRecord);
+        }, 600);
+
+        // Refresh UI components
+        renderPartialPaymentTable();
+        renderGatePassHistory();
+        clearPartialPaymentForm();
+        refreshAll(); 
+
+        if (currentPaymentMode === 'credit') {
+            alert(`Invoice #${newInvoiceId} and Gate Pass generated successfully.\nRemaining Balance: ${CURRENCY_SYMBOL}${newInvoice.remainingBalance.toFixed(2)}`);
+        } else {
+            alert(`Cash Sale Invoice #${newInvoiceId} and Gate Pass created successfully.`);
+        }
+    } catch (err) {
+        console.error("Invoice Error:", err);
+        alert("Error while creating invoice and gate pass: " + err.message);
+    } finally {
+        isCreatingInvoice = false;
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerText = "Create Invoice";
+        }
+    }
+}
+
+
+// =========================================================
+// 2. UPDATED: GENERATE GATE PASS PDF (CLEAN 80mm THERMAL SLIP)
+// =========================================================
 function generateGatePassPDF(gatePassRecord) {
     if (!gatePassRecord) {
         alert("Could not find the Gate Pass record to print.");
@@ -7820,9 +7856,10 @@ function generateGatePassPDF(gatePassRecord) {
 
     const itemsCount = gatePassRecord.items ? gatePassRecord.items.length : 0;
     
-    // Dynamic height calculation taake slip jitni lambi ho utna hi roll nikle
-    let estimatedHeight = 85 + (itemsCount * 7.5);
-    if (estimatedHeight < 100) estimatedHeight = 100;
+    // Dynamic height calculation for thermal roll
+    let estimatedHeight = 95 + (itemsCount * 7.5);
+    if (gatePassRecord.customerName && gatePassRecord.customerName !== 'N/A') estimatedHeight += 8;
+    if (estimatedHeight < 105) estimatedHeight = 105;
 
     // 80mm roll format
     const doc = new jsPDF({
@@ -7834,32 +7871,50 @@ function generateGatePassPDF(gatePassRecord) {
     let yPos = 7;
     doc.setTextColor(0, 0, 0);
 
-    // Shop Header
-    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-    doc.text(appSettings.restaurantName || "Umer Brothers", 40, yPos, { align: 'center' }); yPos += 5;
+    // Business Header
+    doc.setFontSize(13); 
+    doc.setFont('helvetica', 'bold');
+    doc.text(appSettings.restaurantName || "Umer Brothers", 40, yPos, { align: 'center' }); 
+    yPos += 5;
     
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8); 
+    doc.setFont('helvetica', 'normal');
     if (appSettings.restaurantAddress) {
         const splitAddress = doc.splitTextToSize(appSettings.restaurantAddress, 72);
         doc.text(splitAddress, 40, yPos, { align: 'center' });
         yPos += (splitAddress.length * 3.5);
     }
     if (appSettings.restaurantPhone) {
-        doc.text(`Tel: ${appSettings.restaurantPhone}`, 40, yPos, { align: 'center' }); yPos += 4;
+        doc.text(`Tel: ${appSettings.restaurantPhone}`, 40, yPos, { align: 'center' }); 
+        yPos += 4;
     }
 
     // Divider Line
     doc.setLineWidth(0.3);
-    doc.line(4, yPos, 76, yPos); yPos += 4;
+    doc.line(4, yPos, 76, yPos); 
+    yPos += 4;
 
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-    doc.text('GATE PASS', 40, yPos, { align: 'center' }); yPos += 4;
+    doc.setFontSize(10); 
+    doc.setFont('helvetica', 'bold');
+    doc.text('OFFICIAL GATE PASS', 40, yPos, { align: 'center' }); 
+    yPos += 4.5;
 
-    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5); 
+    doc.setFont('helvetica', 'normal');
     doc.text(`Pass ID: ${gatePassRecord.id}`, 4, yPos);
-    doc.text(`Date: ${new Date(gatePassRecord.date).toLocaleDateString()}`, 76, yPos, { align: 'right' }); yPos += 4;
+    doc.text(`Date: ${new Date(gatePassRecord.date).toLocaleDateString()}`, 76, yPos, { align: 'right' }); 
+    yPos += 3.5;
 
-    // Gate Pass Items Table (72mm width: 10mm + 46mm + 16mm)
+    if (gatePassRecord.invoiceId) {
+        doc.text(`Ref Invoice: #${gatePassRecord.invoiceId}`, 4, yPos);
+        yPos += 3.5;
+    }
+    if (gatePassRecord.customerName && gatePassRecord.customerName !== 'N/A') {
+        doc.text(`Customer: ${gatePassRecord.customerName}`, 4, yPos);
+        yPos += 3.5;
+    }
+
+    // Table Data (Quantity & Description)
     const data = gatePassRecord.items.map((item, index) => [
         index + 1,
         item.name,
@@ -7883,18 +7938,17 @@ function generateGatePassPDF(gatePassRecord) {
 
     yPos = doc.previousAutoTable.finalY + 12;
 
-    // Signatures for Gate Pass
+    // Signature Area
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.2);
     
-    // Left signature line
     doc.line(6, yPos, 34, yPos);
-    // Right signature line
     doc.line(46, yPos, 74, yPos);
 
-    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7); 
+    doc.setFont('helvetica', 'bold');
     doc.text('Prepared By', 20, yPos + 3.5, { align: 'center' });
-    doc.text('Received By', 60, yPos + 3.5, { align: 'center' });
+    doc.text('Gate Guard / Receiver', 60, yPos + 3.5, { align: 'center' });
 
     doc.save(`Gate_Pass_${gatePassRecord.id}.pdf`);
 }
@@ -11417,3 +11471,4 @@ async function addDaysToUser(userId, daysToAdd) {
 
 </body>
 </html>
+
