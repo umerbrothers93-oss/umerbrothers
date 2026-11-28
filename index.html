@@ -4261,6 +4261,7 @@ function renderPartialInvoiceCart() {
     totalElement.textContent = `${CURRENCY_SYMBOL}${totalAmount.toFixed(2)}`;
 }
 
+// ==================== YEH NAYA CODE PASTE KAREIN ====================
 async function addPartialPaymentInvoice() {
     if (isCreatingInvoice) return; // Dobara click hone se lock karega
 
@@ -4306,7 +4307,7 @@ async function addPartialPaymentInvoice() {
     isCreatingInvoice = true;
     if (createBtn) {
         createBtn.disabled = true;
-        createBtn.innerText = "Creating Invoice...";
+        createBtn.innerText = "Creating Invoice & Gate Pass...";
     }
 
     try {
@@ -4361,19 +4362,42 @@ async function addPartialPaymentInvoice() {
         partialPaymentInvoices.push(newInvoice);
         await savePartialPaymentInvoices();
 
+        // Cash Book entry
         if (advancePayment > 0) {
             addTransactionToCashBook(`Sale (Inv #${newInvoice.invoiceId}) - ${customerName}`, 'in', advancePayment, new Date().toISOString(), 'cb_sale_' + newInvoice.invoiceId);
         }
 
-        generateInvoicePDF(newInvoice.invoiceId);
+        // --- NAYA GATE PASS AUTO RECORD AUR SAVE ---
+        const autoGatePassRecord = {
+            id: 'gp' + Date.now(),
+            date: new Date().toISOString(),
+            invoiceId: newInvoice.invoiceId,
+            customerName: customerName,
+            items: partialInvoiceCart.map(item => ({
+                id: item.id,
+                name: item.name,
+                quantity: item.quantity
+            }))
+        };
+        gatePassLog.push(autoGatePassRecord);
+        await saveGatePassLog();
+
+        // 1. Pehle Invoice PDF download hogi
+        await generateInvoicePDF(newInvoice.invoiceId);
+
+        // 2. 500ms ke delay ke sath Gate Pass PDF bhi automatic download ho jaye gi
+        setTimeout(() => {
+            generateGatePassPDF(autoGatePassRecord);
+        }, 500);
+
         renderPartialPaymentTable();
         clearPartialPaymentForm();
         refreshAll(); 
 
         if (currentPaymentMode === 'credit') {
-            alert(`New Invoice #${newInvoiceId} created for ${customerName}. Remaining balance: ${CURRENCY_SYMBOL}${newInvoice.remainingBalance.toFixed(2)}.`);
+            alert(`Invoice #${newInvoiceId} aur Gate Pass dono kamyabi se create aur download ho gaye hain!`);
         } else {
-            alert(`Cash Sale Invoice #${newInvoiceId} recorded successfully.`);
+            alert(`Cash Sale Invoice #${newInvoiceId} aur Gate Pass dono save aur download ho gaye hain!`);
         }
     } catch (err) {
         console.error("Invoice Error:", err);
@@ -4386,6 +4410,7 @@ async function addPartialPaymentInvoice() {
         }
     }
 }
+// ==================== NAYA CODE KHATAM ====================
 
 // --- SALES & LEDGER DATE FILTER VARIABLES ---
 let currentSalesDateFilter = 'all'; // 'today', 'yesterday', '7days', 'custom', 'all'
